@@ -17,11 +17,15 @@ class AttendanceSensor:
         self,
         avg_door_passes: int,
         std_door_passes: int,
+        pct_dysfunction: float = 0.05,
+        pct_breakdown: float = 0.015,
     ) -> None:
         self.avg_door_passes = avg_door_passes
         self.std_door_passes = std_door_passes
+        self.pct_dysfunction = pct_dysfunction
+        self.pct_breakdown = pct_breakdown
 
-    def hour_visits(
+    def simulate_hour_visits(
         self,
         open_date: str,
     ) -> list:
@@ -63,3 +67,22 @@ class AttendanceSensor:
         visits_of_the_day: list = list_visits_per_hour
 
         return visits_of_the_day
+
+    def get_hour_visits(self, open_date: str) -> dict:
+        """
+        Return the number of visits per hour with
+        simulated null or count errors
+        """
+        np.random.seed(seed=date.fromisoformat(open_date).toordinal())
+        rng_dysfunction = np.random.random()
+        rng_hour: int = np.random.randint(low=0, high=12)
+
+        nb_visits = self.simulate_hour_visits(open_date)
+        # Simulate a sensor dysfunction
+        if rng_dysfunction < self.pct_dysfunction:
+            nb_visits[rng_hour]["nb_visits"] *= 0.1
+        # Simulate a sensor breakdown
+        if rng_dysfunction < self.pct_breakdown:
+            nb_visits[rng_hour]["nb_visits"] = None
+
+        return {"sensor_visits": {"day ": open_date, "datas": nb_visits}}
