@@ -1,3 +1,6 @@
 /data/
 *.csv
 /venv/
+tests/gabriel_tests.py
+.idea/
+__pycache__
