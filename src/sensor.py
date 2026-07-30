@@ -1,6 +1,6 @@
 """
 @File    :   sensor.py
-@Time    :   2020/8/25
+@Time    :   2026/07/28
 @Author  :   Gabriel SURIER
 @Purpose :   Declare AttendanceSensor to simulate datas
 """
