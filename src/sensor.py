@@ -1,5 +1,9 @@
-"""Sensor module for simulating hourly store visit attendance."""
-
+"""
+@File    :   sensor.py
+@Time    :   2020/8/25
+@Author  :   Gabriel SURIER
+@Purpose :   Declare AttendanceSensor to simulate datas
+"""
 from datetime import date
 
 import numpy as np
