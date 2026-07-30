@@ -34,11 +34,13 @@ class AttendanceSensor:
         Define a list for the number of passage per hour
         """
 
-        seed: int = date.fromisoformat(open_date).toordinal()
+        open_date_iso: date = date.fromisoformat(open_date)
+        week_day: int = date.weekday(open_date_iso)
+        seed: int = open_date_iso.toordinal()
         rng_datas: Generator = np.random.default_rng(seed)
         list_visits_per_hour: list = [
-            {"hour": hour, "nb_visits": int((np.round(nb_visits).astype(int)))}
-            for hour, nb_visits in zip(
+            {"hour": hour, "visits_nb": int((np.round(visits_nb).astype(int)))}
+            for hour, visits_nb in zip(
                 range(8, 20),
                 rng_datas.normal(
                     loc=self.avg_door_passes, scale=self.std_door_passes, size=12
@@ -48,7 +50,7 @@ class AttendanceSensor:
         # Adjust the visits per hour to have something that looks like reality
         for index in enumerate(list_visits_per_hour):
             hour = index[1]["hour"]
-            visits_per_hour = index[1]["nb_visits"]
+            visits_per_hour = index[1]["visits_nb"]
 
             if hour in range(8, 12):
                 visits_per_hour *= 0.5
@@ -62,27 +64,33 @@ class AttendanceSensor:
             if hour in range(18, 20):
                 visits_per_hour *= 2
 
-            index[1]["nb_visits"] = visits_per_hour
+            index[1]["visits_nb"] = visits_per_hour
 
-        visits_of_the_day: list = list_visits_per_hour
+        # If it's sunday the store is closed.
+        if week_day == 6:
+            visits_of_the_day = [-1]
+        else:
+            visits_of_the_day = list_visits_per_hour
 
         return visits_of_the_day
 
-    def get_hour_visits(self, open_date: str) -> dict:
+    def get_hour_visits(self, open_date: str) -> list:
         """
         Return the number of visits per hour with
         simulated null or count errors
         """
         np.random.seed(seed=date.fromisoformat(open_date).toordinal())
         rng_dysfunction = np.random.random()
-        rng_hour: int = np.random.randint(low=0, high=12)
+        rng_hour: int = int(np.random.randint(low=0, high=12))
 
-        nb_visits = self.simulate_hour_visits(open_date)
-        # Simulate a sensor dysfunction
-        if rng_dysfunction < self.pct_dysfunction:
-            nb_visits[rng_hour]["nb_visits"] *= 0.1
-        # Simulate a sensor breakdown
-        if rng_dysfunction < self.pct_breakdown:
-            nb_visits[rng_hour]["nb_visits"] = None
+        day_visits_nb = self.simulate_hour_visits(open_date)
 
-        return {"sensor_visits": {"day ": open_date, "datas": nb_visits}}
+        if day_visits_nb[0] != -1:
+            # Simulate a sensor dysfunction
+            if rng_dysfunction < self.pct_dysfunction:
+                day_visits_nb[rng_hour]["visits_nb"] *= 0.1
+            # Simulate a sensor breakdown
+            if rng_dysfunction < self.pct_breakdown:
+                day_visits_nb[rng_hour]["visits_nb"] = None
+
+        return day_visits_nb
