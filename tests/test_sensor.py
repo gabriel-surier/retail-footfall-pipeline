@@ -1,5 +1,5 @@
 """
-@File    :   tests_sensor.py
+@File    :   test_sensor.py
 @Time    :   2020/8/26
 @Author  :   Gabriel SURIER
 @Purpose :   Unit tests on AttendanceSensor for ci
