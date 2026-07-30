@@ -4,7 +4,9 @@
 @Author  :   Gabriel SURIER
 @Purpose :   Declare AttendanceSensor to simulate datas
 """
+
 from datetime import date
+import sys
 
 import numpy as np
 from numpy.random import Generator
@@ -98,3 +100,14 @@ class AttendanceSensor:
                 day_visits_nb[rng_hour]["visits_nb"] = None
 
         return day_visits_nb
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        year, month, day = [int(v) for v in sys.argv[1].split("-")]
+    else:
+        year, month, day = 2026, 7, 30
+    queried_date = date(year, month, day).strftime("%Y-%m-%d")
+
+    sensor = AttendanceSensor(avg_door_passes=100, std_door_passes=25)
+    print(sensor.get_hour_visits(queried_date))
