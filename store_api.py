@@ -18,7 +18,7 @@ door_dict: dict = create_app()
 app = FastAPI()
 
 
-@app.get("/VISITS/")
+@app.get("/door-visits")
 def get_visits(open_date: str, door_name: str) -> JSONResponse:
     """
     get visits by date and door name
