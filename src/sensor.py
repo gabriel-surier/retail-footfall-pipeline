@@ -110,4 +110,5 @@ if __name__ == "__main__":
     queried_date = date(year, month, day).strftime("%Y-%m-%d")
 
     sensor = AttendanceSensor(avg_door_passes=100, std_door_passes=25)
-    print(sensor.get_hour_visits(queried_date))
+    # DEBUG
+    # print(sensor.get_hour_visits(queried_date))
