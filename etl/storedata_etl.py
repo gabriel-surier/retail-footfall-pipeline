@@ -1,20 +1,124 @@
+"""
+@File    :   storedata_etl.py
+@Time    :   2020/8/31
+@Author  :   Gabriel SURIER
+@Purpose :   Create csv dataset for storing sensor data month by month
+            here they are stocked in data/raw, but in a real environment,
+            we will use S3 or maybe an ODS in a database.
+"""
+
+from datetime import date, datetime, timedelta
+from pathlib import Path
+import calendar
+
 import requests
 import pandas as pd
-from datetime import date,datetime
-year,month,date = '2026','07','31'
-business_date=f"{year}-{month}-{date}"
-door_name="north"
-base_url="http://127.0.0.1:8002"
-get_url=f"{base_url}/door-visits?open_date={business_date}&door_name={door_name}"
 
-response_dict=requests.get(get_url).json()
+BASE_URL = "http://127.0.0.1:8002"
+ref_door: dict = {
+    "sensors_referential": [
+        {"sensor_id": 1, "door_name": "north"},
+        {"sensor_id": 2, "door_name": "south"},
+        {"sensor_id": 3, "door_name": "east"},
+        {"sensor_id": 4, "door_name": "west"},
+    ]
+}
+df_door_id = pd.DataFrame(ref_door["sensors_referential"])
+START_DATE: date = date(2026, 1, 1)
+END_DATE: date = date.today()
+current_timestamp_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-print(response_dict["sensor_visits"])
+
+def extract_sensor_id(door_name: str) -> int:
+    """
+    Retrieve the sensor id for a given door name from a simulate referential
+    :param door_name:
+    :return: sensor id
+    """
+    sensor_id = int(
+        df_door_id["sensor_id"]
+        .where(df_door_id["door_name"] == door_name)
+        .dropna()
+        .iloc[0]
+    )
+    return sensor_id
 
 
-df=pd.DataFrame(response_dict["sensor_visits"]["datas"])
-df['open_date']=business_date
-df['TEC_CREATION_TS'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-date_id=int(business_date.split("-")[0]+business_date.split("-")[1]+business_date.split("-")[2])
-df.insert(0,'door_name',door_name)
-df.insert(0,'date_id',date_id)
+def is_last_day_of_month(current_date: date) -> bool:
+    """
+    From a given date, determine if it is the last day of the month
+    :param current_date:
+    :return:
+    """
+    last_day_of_month = calendar.monthrange(current_date.year, current_date.month)[1]
+    return current_date.day == last_day_of_month
+
+
+def extract_date_id(business_date: str) -> int:
+    """
+    Retrieve the date id for a given business date
+    :param business_date:
+    :return: date id
+    """
+    date_id = int(
+        business_date.split("-")[0]
+        + business_date.split("-")[1]
+        + business_date.split("-")[2]
+    )
+    return date_id
+
+
+def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
+    """
+    Retrieve the data frame from the given business date and door name
+    :param business_date:
+    :param door_name:
+    :return: dataframe sensor_df
+    """
+    # declare variables
+    get_url = f"{BASE_URL}/door-visits?open_date={business_date}&door_name={door_name}"
+    sensor_id = extract_sensor_id(door_name)
+    date_id = extract_date_id(business_date)
+    # api call
+    response_dict = requests.get(get_url, timeout=300).json()
+    # pandas dataframe construction
+    sensor_df = pd.DataFrame(response_dict["sensor_visits"]["datas"])
+    sensor_df["open_date"] = business_date
+    sensor_df["TEC_CREATION_TS"] = current_timestamp_str
+    sensor_df.insert(0, "door_name", door_name)
+    sensor_df.insert(0, "sensor_id", sensor_id)
+    sensor_df.insert(0, "date_id", date_id)
+    return sensor_df
+
+
+def create_csv_by_month(start_date: date, end_date: date) -> None:
+    """
+    Create csv file month by month from start date to end date
+    :param start_date:
+    :param end_date:
+    :return: None
+    """
+    output_df = pd.DataFrame()
+    current_date = start_date
+    while current_date <= end_date:
+        business_date = current_date.strftime("%Y-%m-%d")
+        if current_date.weekday() != 6:
+            for door_name in enumerate(ref_door["sensors_referential"]):
+                door_name = door_name[1]["door_name"]
+                sensor_df = extract_by_date(business_date, door_name)
+                output_df = pd.concat([output_df, sensor_df], ignore_index=True)
+            if is_last_day_of_month(current_date):
+                month_id = str(extract_date_id(business_date))[:6]
+                with open(
+                    f"{Path.cwd()}/data/raw/store_data_{month_id}.csv",
+                    "w",
+                    encoding="UTF-8",
+                ) as file:
+                    output_df.to_csv(file, index=False)
+                    file.close()
+                output_df = pd.DataFrame()
+
+        current_date += timedelta(days=1)
+
+
+create_csv_by_month(START_DATE, END_DATE)
