@@ -1,5 +1,5 @@
 """
-@File    :   sensor.py
+@File    :   store_api.py
 @Time    :   2026/07/30
 @Author  :   Gabriel SURIER
 @Purpose :   Create API for simulate provider data app
@@ -10,10 +10,7 @@ from datetime import date
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-
-
 from starlette import status
-
 from src import create_app
 
 door_dict: dict = create_app()
@@ -21,7 +18,7 @@ door_dict: dict = create_app()
 app = FastAPI()
 
 
-@app.get("/GET_VISITS/")
+@app.get("/VISITS/")
 def get_visits(open_date: str, door_name: str) -> JSONResponse:
     """
     get visits by date and door name
