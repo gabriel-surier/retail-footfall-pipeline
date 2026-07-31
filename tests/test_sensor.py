@@ -62,7 +62,7 @@ class TestAttendanceSensor(unittest.TestCase):
         )
         index_hour = 0  # represent hour = 8
         visit_count = visit_sensor.get_hour_visits("2026-07-02")
-        self.assertEqual(visit_count[index_hour]["visits_nb"], 19.0)
+        self.assertEqual(visit_count[index_hour]["visits_nb"], 19)
 
 
 if __name__ == "__main__":

@@ -70,7 +70,7 @@ class AttendanceSensor:
             if hour in range(18, 20):
                 visits_per_hour *= 2
 
-            index[1]["visits_nb"] = visits_per_hour
+            index[1]["visits_nb"] = int(visits_per_hour)
 
         # If it's sunday the store is closed.
         if week_day == 6:
