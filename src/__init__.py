@@ -2,7 +2,7 @@
 @File    :   __init__.py
 @Time    :   2020/07/30
 @Author  :   Gabriel SURIER
-@Purpose :   Declare base app for api usage 
+@Purpose :   Declare base app for api usage
 """
 
 from src.sensor import AttendanceSensor
@@ -22,7 +22,7 @@ def create_app() -> dict:
     door_dict: dict = {}
 
     for i in enumerate(door_name):
-        index=i[0]
+        index = i[0]
         door_dict[door_name[index]] = AttendanceSensor(
             door_avg_visit[index],
             door_std_visit[index],
