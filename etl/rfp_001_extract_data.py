@@ -27,7 +27,8 @@ df_door_id = pd.DataFrame(ref_door["sensors_referential"])
 START_DATE: date = date(2026, 1, 1)
 END_DATE: date = date.today()
 current_timestamp_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-raw_data_file_path=Path(__file__).resolve().parent
+raw_data_file_path = Path(__file__).resolve().parent
+
 
 def is_last_day_of_month(current_date: date) -> bool:
     """
@@ -121,5 +122,3 @@ def create_csv_by_month(start_date: date, end_date: date) -> None:
 
 if __name__ == "__main__":
     create_csv_by_month(START_DATE, END_DATE)
-
-
