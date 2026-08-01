@@ -95,6 +95,9 @@ class AttendanceSensor:
             # Simulate a sensor dysfunction
             if rng_dysfunction < self.pct_dysfunction:
                 day_visits_nb[rng_hour]["visits_nb"] *= 0.1
+                day_visits_nb[rng_hour]["visits_nb"] = int(
+                    round(day_visits_nb[rng_hour]["visits_nb"], 0)
+                )
             # Simulate a sensor breakdown
             if rng_dysfunction < self.pct_breakdown:
                 day_visits_nb[rng_hour]["visits_nb"] = None
