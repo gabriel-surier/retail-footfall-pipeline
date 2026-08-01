@@ -1,5 +1,5 @@
 """
-@File    :   storedata_etl.py
+@File    :   rfp_001_extract_data.py
 @Time    :   2020/8/31
 @Author  :   Gabriel SURIER
 @Purpose :   Create csv dataset for storing sensor data month by month
@@ -27,21 +27,6 @@ df_door_id = pd.DataFrame(ref_door["sensors_referential"])
 START_DATE: date = date(2026, 1, 1)
 END_DATE: date = date.today()
 current_timestamp_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def extract_sensor_id(door_name: str) -> int:
-    """
-    Retrieve the sensor id for a given door name from a simulate referential
-    :param door_name:
-    :return: sensor id
-    """
-    sensor_id = int(
-        df_door_id["sensor_id"]
-        .where(df_door_id["door_name"] == door_name)
-        .dropna()
-        .iloc[0]
-    )
-    return sensor_id
 
 
 def is_last_day_of_month(current_date: date) -> bool:
@@ -77,17 +62,29 @@ def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
     """
     # declare variables
     get_url = f"{BASE_URL}/door-visits?open_date={business_date}&door_name={door_name}"
-    sensor_id = extract_sensor_id(door_name)
     date_id = extract_date_id(business_date)
     # api call
     response_dict = requests.get(get_url, timeout=300).json()
     # pandas dataframe construction
     sensor_df = pd.DataFrame(response_dict["sensor_visits"]["datas"])
+
     sensor_df["open_date"] = business_date
     sensor_df["TEC_CREATION_TS"] = current_timestamp_str
     sensor_df.insert(0, "door_name", door_name)
-    sensor_df.insert(0, "sensor_id", sensor_id)
+    sensor_df = sensor_df.merge(df_door_id, on="door_name")
+
     sensor_df.insert(0, "date_id", date_id)
+    sensor_df = sensor_df[
+        [
+            "date_id",
+            "sensor_id",
+            "door_name",
+            "hour",
+            "visits_nb",
+            "open_date",
+            "TEC_CREATION_TS",
+        ]
+    ]
     return sensor_df
 
 
