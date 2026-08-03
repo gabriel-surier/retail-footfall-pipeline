@@ -137,7 +137,7 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
                 door_name = door_name[1]["door_name"]
                 sensor_df = extract_by_date(business_date, door_name)
                 output_df = pd.concat([output_df, sensor_df], ignore_index=True)
-            if is_last_day_of_month(current_date):
+            if is_last_day_of_month(current_date) or current_date == date.today():
                 month_id = str(extract_date_id(business_date))[:6]
                 with open(
                     f"{raw_data_file_path}{FILE_PATH_RAW_DATA}store_data_{month_id}.csv",
