@@ -9,12 +9,32 @@
 
 from datetime import date, datetime, timedelta
 from pathlib import Path
+import os
 import calendar
 
 import requests
 import pandas as pd
+from dotenv import load_dotenv
 
-BASE_URL = "http://127.0.0.1:8002"
+load_dotenv()
+
+# ===============================================
+# ENVIRONMENT VAR
+# ===============================================
+FILE_PATH_RAW_DATA = os.getenv("FILE_PATH_RAW_DATA")
+
+API_BASE_URL = os.getenv("API_BASE_URL")
+
+DATA_LOAD_MOD = os.getenv("DATA_LOAD_MOD")
+DATA_LOAD_INIT_DATE: str = str(os.getenv("DATA_LOAD_INIT_DATE"))
+
+DEBUG = os.getenv("DEBUG")
+
+# ===============================================
+# FILE VAR
+# ===============================================
+
+
 ref_door: dict = {
     "sensors_referential": [
         {"sensor_id": 1, "door_name": "north"},
@@ -24,10 +44,20 @@ ref_door: dict = {
     ]
 }
 df_door_id = pd.DataFrame(ref_door["sensors_referential"])
-START_DATE: date = date(2026, 1, 1)
+
+# Make a delta load mod for orchestration
+start_date: date = date(2026, 1, 1)  # default for initialize date type
+if DATA_LOAD_MOD == "INIT":
+    start_date = date.fromisoformat(DATA_LOAD_INIT_DATE)
+else:
+    start_date = date.today().replace(day=1)
 END_DATE: date = date.today()
 current_timestamp_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 raw_data_file_path = Path(__file__).resolve().parent
+
+# ===============================================
+# EXTRACT PIPELINE
+# ===============================================
 
 
 def is_last_day_of_month(current_date: date) -> bool:
@@ -62,7 +92,9 @@ def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
     :return: dataframe sensor_df
     """
     # declare variables
-    get_url = f"{BASE_URL}/door-visits?open_date={business_date}&door_name={door_name}"
+    get_url = (
+        f"{API_BASE_URL}/door-visits?open_date={business_date}&door_name={door_name}"
+    )
     date_id = extract_date_id(business_date)
     # api call
     response_dict = requests.get(get_url, timeout=300).json()
@@ -89,15 +121,15 @@ def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
     return sensor_df
 
 
-def create_csv_by_month(start_date: date, end_date: date) -> None:
+def create_csv_by_month(starting_date: date, end_date: date) -> None:
     """
     Create csv file month by month from start date to end date
-    :param start_date:
+    :param starting_date:
     :param end_date:
     :return: None
     """
     output_df = pd.DataFrame()
-    current_date = start_date
+    current_date = starting_date
     while current_date <= end_date:
         business_date = current_date.strftime("%Y-%m-%d")
         if current_date.weekday() != 6:
@@ -108,7 +140,7 @@ def create_csv_by_month(start_date: date, end_date: date) -> None:
             if is_last_day_of_month(current_date):
                 month_id = str(extract_date_id(business_date))[:6]
                 with open(
-                    f"{raw_data_file_path}/data/raw/store_data_{month_id}.csv",
+                    f"{raw_data_file_path}{FILE_PATH_RAW_DATA}store_data_{month_id}.csv",
                     "w",
                     encoding="UTF-8",
                 ) as file:
@@ -121,4 +153,4 @@ def create_csv_by_month(start_date: date, end_date: date) -> None:
 
 
 if __name__ == "__main__":
-    create_csv_by_month(START_DATE, END_DATE)
+    create_csv_by_month(start_date, END_DATE)
