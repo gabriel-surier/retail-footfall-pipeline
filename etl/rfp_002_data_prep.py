@@ -8,8 +8,8 @@
 """
 
 from pathlib import Path
-import os
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import pandas as pd
 import duckdb
 
@@ -17,23 +17,43 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 # ===============================================
 # ENVIRONMENT VAR
 # ===============================================
-FILE_PATH_RAW_DATA = os.getenv("FILE_PATH_RAW_DATA")
-FILE_PATH_INTER_DATA = os.getenv("FILE_PATH_INTER_DATA")
-FILE_PATH_PRO_DATA = os.getenv("FILE_PATH_PRO_DATA")
+class Settings(BaseSettings):
+    """
+    Import Settings from .env file with pydantic settings
+    """
 
-DEBUG = os.getenv("DEBUG")
+    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parent / ".env")
 
-DATA_LOAD_MOD = os.getenv("DATA_LOAD_MOD")
+    file_path_raw_data: str = "01_raw"
+    file_path_inter_data: str = "02_interim"
+    file_path_pro_data: str = "03_processed"
+    debug: bool = False
+    data_load_mod: str = "INIT"
+
+
+settings = Settings()
+
+print(settings.file_path_raw_data)
+FILE_PATH_RAW_DATA: str = settings.file_path_raw_data
+FILE_PATH_INTER_DATA: str = settings.file_path_inter_data
+FILE_PATH_PRO_DATA: str = settings.file_path_pro_data
+DEBUG: bool = settings.debug
+DATA_LOAD_MOD: str = settings.data_load_mod
+
 # ===============================================
 # FILE VAR
 # ===============================================
 
-raw_data_dir: str = f"{Path(__file__).resolve().parent}{FILE_PATH_RAW_DATA}"
-interim_data_dir: str = f"{Path(__file__).resolve().parent}{FILE_PATH_INTER_DATA}"
-processed_data_dir: str = f"{Path(__file__).resolve().parent}{FILE_PATH_PRO_DATA}"
+raw_data_dir: Path = Path(__file__).resolve().parent / FILE_PATH_RAW_DATA
+interim_data_dir: Path = Path(__file__).resolve().parent / FILE_PATH_INTER_DATA
+processed_data_dir: Path = Path(__file__).resolve().parent / FILE_PATH_PRO_DATA
+sql_dir: Path = Path(__file__).resolve().parent / "sqlq"
+INTERIM_FILE_NAME: str = "dwh_fact_visits"
+PROCESSED_FILE_NAME: str = "dm_fact_visits"
 
 # ===============================================
 # DATA PREP VAR
@@ -41,22 +61,24 @@ processed_data_dir: str = f"{Path(__file__).resolve().parent}{FILE_PATH_PRO_DATA
 
 # Get all data in one dataframe
 
-csv_files = [f for f in Path(raw_data_dir).glob("*.csv") if f.stat().st_size > 0]
+csv_files = [str(f) for f in Path(raw_data_dir).glob("*.csv") if f.stat().st_size > 0]
 
 # Raise error if no files are found. In reality cases, we will push an e-mail and log it in a table.
 
 if not csv_files:
     raise FileNotFoundError(f"ERROR : No files found in {raw_data_dir}")
 
-visits_df = pd.concat([pd.read_csv(f) for f in csv_files])
-
+# Load all csv in a dataframe : visits_df, uses in dwh_fact_visits.sql.
+visits_df = duckdb.execute(
+    "SELECT * FROM read_csv(?, union_by_name=true)", [csv_files]
+).df()
 # ===============================================
 # FUNCTIONS
 # ===============================================
 
 
 def generate_parquet(
-    file_name: str, dir_path: str, df_to_parquet: pd.DataFrame
+    file_name: str, dir_path: Path, df_to_parquet: pd.DataFrame
 ) -> None:
     """
     Generate a parquet file  with a specific name in a selected file path
@@ -66,7 +88,7 @@ def generate_parquet(
     :return: None
     """
 
-    data_file_path = Path(dir_path) / f"{file_name}.parquet"
+    data_file_path: Path = Path(dir_path) / f"{file_name}.parquet"
 
     if data_file_path.exists():
         f_df = pd.read_parquet(data_file_path)
@@ -92,90 +114,31 @@ def generate_parquet(
 
 
 # This query harmonize all data to do all the calculations
+# Reference : sqlq/dwh_fact_visits.sql
 
-QUERY_ONE = """
-        SELECT
-             date_id AS DATE_ID
-            ,sensor_id  AS SENSOR_ID
-            ,coalesce(door_name,'#') AS DOOR_NAME_DESC
-            ,coalesce("hour",-1) AS HOUR_NUM 
-            ,CAST(coalesce(visits_nb,0) AS INTEGER) AS VISITS_NUM
-            ,strptime(open_date, '%Y-%m-%d') AS OPEN_DT
-            ,cast( TEC_CREATION_TS AS TIMESTAMP(0)) AS TEC_SOURCE_TS
-            ,current_timestamp::TIMESTAMP(0)  AS TEC_CREATION_TS
-        FROM visits_df 
-        WHERE date_id IS NOT NULL 
-          AND sensor_ID IS NOT NULL      
-"""
+with open(f"{sql_dir}/{INTERIM_FILE_NAME}.sql", encoding="UTF-8") as file:
+    QUERY_ONE = file.read()
+    file.close()
 
 # We put this in a .parquet file in a processing folder.
-# If data volume grow, we switch to Database (like DuckDB or PostgreSQL)
-# Here we do a simple "upsert" with a drop duplicate.
-# In a real environment we will have a data wharehouse
 
-updt_fact_visits_df = duckdb.query(QUERY_ONE).df()
-generate_parquet("fact_visits", interim_data_dir, updt_fact_visits_df)
+updt_dwh_fact_visits_df = duckdb.query(QUERY_ONE).df()
+generate_parquet(INTERIM_FILE_NAME, interim_data_dir, updt_dwh_fact_visits_df)
 
 
 # This query detect abnormal number of visits
+# Reference : sqlq/dm_fact_visits.sql
+# We can put parquet file or updt_dwh_fact_visits_df,
+# With big dataset I prefer the parquet for performance.
 
-QUERY_TWO = """
-WITH daily_analyze AS (
-        SELECT
-             DATE_ID
-            ,SENSOR_ID
-            ,OPEN_DT
-            ,SUM(VISITS_NUM) AS DAILY_VISITS_NUM
-            ,dayname(OPEN_DT) DAY_OF_WEEK
-        FROM updt_fact_visits_df 
-        GROUP BY DATE_ID,SENSOR_ID,OPEN_DT,DAY_OF_WEEK 
-)
-   , avg_daily_visits AS (
-        SELECT
-             DATE_ID
-            ,SENSOR_ID
-            ,DAY_OF_WEEK
-            ,OPEN_DT
-            ,DAILY_VISITS_NUM
-            , AVG(DAILY_VISITS_NUM) OVER (
-            PARTITION BY DAY_OF_WEEK,SENSOR_ID
-            ORDER BY OPEN_DT 
-            ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING
-            ) AS AVG_DAILY_VISITS_NUM
-            ,COALESCE(ROUND(
-                (DAILY_VISITS_NUM-AVG_DAILY_VISITS_NUM)/COALESCE(AVG_DAILY_VISITS_NUM,1) *100,2
-            ) ,0) AS PCT_CHANGE
-         FROM daily_analyze   order by OPEN_DT DESC
-)  
-   , tot_daily_visits AS (
-        SELECT 
-             DATE_ID
-            ,SUM(DAILY_VISITS_NUM) AS TOT_DAILY_VISITS_NUM
-            ,SUM(AVG_DAILY_VISITS_NUM) AS TOT_AVG_DAILY_VISITS_NUM
-            ,COALESCE(ROUND(  ((TOT_DAILY_VISITS_NUM-TOT_AVG_DAILY_VISITS_NUM)
-                                   /COALESCE(TOT_AVG_DAILY_VISITS_NUM,1) *100),2),0) AS TOT_PCT_CHANGE
-        FROM avg_daily_visits
-        GROUP BY DATE_ID
-)
-     SELECT 
-             avg.DATE_ID
-            ,avg.SENSOR_ID
-            ,avg.DAY_OF_WEEK
-            ,avg.OPEN_DT
-            ,avg.DAILY_VISITS_NUM
-            ,COALESCE(ROUND(avg.AVG_DAILY_VISITS_NUM),0) AS AVG_DAILY_VISITS_NUM
-            ,avg.PCT_CHANGE
-            ,tot.TOT_DAILY_VISITS_NUM
-            ,COALESCE(ROUND(tot.TOT_AVG_DAILY_VISITS_NUM),0) AS TOT_AVG_DAILY_VISITS_NUM
-            ,tot.TOT_PCT_CHANGE
-     FROM 
-         avg_daily_visits avg 
-         LEFT JOIN tot_daily_visits tot on avg.DATE_ID=tot.DATE_ID
-         ORDER BY avg.OPEN_DT, avg.SENSOR_ID 
 
-"""
+with open(f"{sql_dir}/{PROCESSED_FILE_NAME}.sql", encoding="UTF-8") as file:
+    QUERY_TWO = file.read()
+    file.close()
+PARQUET_FILE_PATH: str = f"{interim_data_dir}/{INTERIM_FILE_NAME}.parquet"
+
 
 # We put this in a .parquet file in a proceesed folder.
 
-updt_v_fact_visits_df = duckdb.query(QUERY_TWO).df()
-generate_parquet("v_fact_visits", processed_data_dir, updt_v_fact_visits_df)
+updt_dm_fact_visits_df = duckdb.execute(QUERY_TWO, [PARQUET_FILE_PATH]).df()
+generate_parquet(PROCESSED_FILE_NAME, processed_data_dir, updt_dm_fact_visits_df)
