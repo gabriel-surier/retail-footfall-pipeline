@@ -1,6 +1,6 @@
 /etl/data/
 *.csv
 /venv/
-tests/gabriel_tests.py
+tests/gabriel*.py
 .idea/
 __pycache__
