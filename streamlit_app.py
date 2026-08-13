@@ -10,6 +10,7 @@
 # Global Package
 # ===============================================
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import altair as alt
@@ -17,10 +18,11 @@ import streamlit as st
 import duckdb
 import pandas as pd
 
-
 # ===============================================
 # ENVIRONMENT VAR
 # ===============================================
+
+
 class Settings(BaseSettings):
     """
     Import Settings from .env file with pydantic settings
@@ -58,7 +60,6 @@ DEBUG: bool = settings.debug
 # ===============================================
 
 
-#
 @st.cache_resource
 def get_connection():
     """
@@ -69,7 +70,6 @@ def get_connection():
     return duckdb.connect()
 
 
-# DB cache
 con = get_connection()
 
 
@@ -81,25 +81,23 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
     :param parquet_file: file to load
     :return: return a pandas dataframe
     """
-    # We use case when statement to retrieve doors name
-    # In reality case we use a db reference table with star/snowflake schemas around fact table
     return _db_con.execute(f"""
         SELECT 
-             DATE_ID
+             DATE_ID 
             ,SENSOR_ID
             ,CASE WHEN SENSOR_ID=1 THEN 'north'
                   WHEN SENSOR_ID=2 THEN 'south'
                   WHEN SENSOR_ID=3 THEN 'east'
                   ELSE 'west' 
              END AS DOOR_NAME_DESC                  
-            ,DAY_OF_WEEK
-            ,OPEN_DT
-            ,DAILY_VISITS_NUM
-            ,AVG_DAILY_VISITS_NUM
-            ,PCT_CHANGE
-            ,TOT_DAILY_VISITS_NUM
-            ,TOT_AVG_DAILY_VISITS_NUM
-            ,TOT_PCT_CHANGE
+            ,DAY_OF_WEEK 
+            ,OPEN_DT 
+            ,DAILY_VISITS_NUM 
+            ,AVG_DAILY_VISITS_NUM 
+            ,PCT_CHANGE 
+            ,TOT_DAILY_VISITS_NUM 
+            ,TOT_AVG_DAILY_VISITS_NUM 
+            ,TOT_PCT_CHANGE 
         FROM read_parquet('{parquet_file}')
         WHERE DAILY_VISITS_NUM<>0
         ORDER BY DATE_ID DESC
@@ -110,14 +108,10 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
 # Main code
 # ===============================================
 
-# Data preparation for data viz
 dm_fact_visits_df = load_data(con, str(FILE_PATH_PRO_DATA))
 door_sensor_list: tuple = tuple(sorted(dm_fact_visits_df["SENSOR_ID"].unique()))
 
-
-# Streamlit output
-st.title("Daily store visits dashboard")
-
+st.title("Store visits dashboard")
 
 option = st.selectbox(
     "Which door do you want to analyse ?",
@@ -127,26 +121,228 @@ option = st.selectbox(
 )
 
 if option is not None:
+
     daily_door_visits_df = dm_fact_visits_df.loc[
         dm_fact_visits_df.SENSOR_ID == option
     ].sort_values(by=["DATE_ID"], ascending=False)
-    st.dataframe(daily_door_visits_df)
 
     DOOR_NAME: str = str(daily_door_visits_df["DOOR_NAME_DESC"].iloc[0])
-    st.title(f"Daily {DOOR_NAME} door visits")
+    CAP_DOOR_NAME: str = DOOR_NAME.capitalize()
 
-    chart = (
-        alt.Chart(daily_door_visits_df)
-        .mark_line(point=True)
-        .encode(
-            x=alt.X("OPEN_DT:T", axis=alt.Axis(format="%d %b", tickCount="day")),
-            y="DAILY_VISITS_NUM:Q",
-            tooltip=["OPEN_DT", "DAILY_VISITS_NUM"],
-        )
-        .properties(title=f"Daily {DOOR_NAME} visits")
+    OUTPUT_ALIASES = {
+        "OPEN_DT": "Open date",
+        "DAILY_VISITS_NUM": "Visits",
+        "AVG_DAILY_VISITS_NUM": "Average visits",
+        "TOT_DAILY_VISITS_NUM": "Visits",
+        "TOT_AVG_DAILY_VISITS_NUM": "Average visits",
+        "PCT_CHANGE": "Door % change",
+        "TOT_PCT_CHANGE": "Store % change",
+    }
+
+    now = pd.Timestamp.now()
+
+    df_all = daily_door_visits_df.copy()
+    df_all["OPEN_DT"] = pd.to_datetime(df_all["OPEN_DT"])
+
+    output_door_df = (
+        df_all[["OPEN_DT", "DAILY_VISITS_NUM", "AVG_DAILY_VISITS_NUM", "PCT_CHANGE"]]
+        .sort_values("OPEN_DT", ascending=False)
+        .rename(columns=OUTPUT_ALIASES)
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    store_df = dm_fact_visits_df.copy()
+    store_df["OPEN_DT"] = pd.to_datetime(store_df["OPEN_DT"])
+    store_df = store_df.drop_duplicates(subset="OPEN_DT")[
+        [
+            "OPEN_DT",
+            "TOT_DAILY_VISITS_NUM",
+            "TOT_AVG_DAILY_VISITS_NUM",
+            "TOT_PCT_CHANGE",
+        ]
+    ].sort_values("OPEN_DT", ascending=False)
 
+    output_store_df = store_df.rename(columns=OUTPUT_ALIASES)
+
+    view = st.sidebar.radio(
+        "View", ["Year (by month)", "Month (by week)", "Week (by day)"]
+    )
+
+    if view == "Month (by week)":
+        months = sorted(df_all["OPEN_DT"].dt.to_period("M").unique())
+        default_month = pd.Period(now, "M")
+        default_idx = months.index(default_month)
+        selected_month = st.sidebar.selectbox(
+            "Month",
+            months,
+            index=default_idx,
+            format_func=lambda p: p.strftime("%B %Y"),
+        )
+    elif view == "Week (by day)":
+        weeks = sorted(df_all["OPEN_DT"].dt.to_period("W").unique())
+        default_week = pd.Period(now, "W")
+        default_idx = weeks.index(default_week)
+        selected_week = st.sidebar.selectbox(
+            "Week",
+            weeks,
+            index=default_idx,
+            format_func=lambda p: f"{p.start_time:%d %b} - {p.end_time:%d %b}",
+        )
+
+    def filter_period(
+        df: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, str, str, Literal["month", "week", "day"]]:
+        """
+        Filter df to the selected view's period and return grouping code, date format, tick unit
+
+        :param df: dataframe with an OPEN_DT column
+        :return: filtered df, period code, date format, tick unit
+        """
+        tick: Literal["month", "week", "day"]
+        if view == "Year (by month)":
+            df = df[df["OPEN_DT"].dt.year == now.year]
+            period, fmt, tick = "M", "%b", "month"
+        elif view == "Month (by week)":
+            df = df[df["OPEN_DT"].dt.to_period("M") == selected_month]
+            period, fmt, tick = "W", "%d %b", "week"
+        else:
+            df = df[df["OPEN_DT"].dt.to_period("W") == selected_week]
+            period, fmt, tick = "D", "%a %d", "day"
+        return df, period, fmt, tick
+
+    def build_table(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+        """
+        Build the display table for the current view: filter by period,
+        keep given cols, apply aliases
+
+        :param df: dataframe with an OPEN_DT column
+        :param cols: metric columns to keep alongside OPEN_DT
+        :return: filtered dataframe with aliased column names, sorted by date descending
+        """
+        filtered_df, _, _, _ = filter_period(df)
+        return (
+            filtered_df[["OPEN_DT"] + cols]
+            .sort_values("OPEN_DT", ascending=False)
+            .rename(columns=OUTPUT_ALIASES)
+        )
+
+    show_avg = view == "Week (by day)"
+
+    door_cols = ["DAILY_VISITS_NUM"] + (
+        ["AVG_DAILY_VISITS_NUM"] + ["PCT_CHANGE"] if show_avg else []
+    )
+    store_cols = ["TOT_DAILY_VISITS_NUM"] + (
+        ["TOT_AVG_DAILY_VISITS_NUM"] + ["TOT_PCT_CHANGE"] if show_avg else []
+    )
+
+    output_door_df = build_table(df_all, door_cols)
+    output_store_df = build_table(store_df, store_cols)
+
+    def build_chart(df: pd.DataFrame, metric_col: str, short_title: str) -> alt.Chart:
+        """
+        Build a bar chart for the given metric, grouped and filtered to
+        the currently selected view's period
+
+        :param df: dataframe with an OPEN_DT column
+        :param metric_col: raw metric column name to aggregate and plot
+        :param short_title: chart title displayed above the bars
+        :return: Altair bar chart aggregated by period with aliased axis and tooltip labels
+        """
+        df, period, fmt, tick = filter_period(df)
+
+        grp = (
+            df.groupby(df["OPEN_DT"].dt.to_period(period))[metric_col]
+            .sum()
+            .reset_index()
+        )
+        grp["Period"] = (
+            grp["OPEN_DT"].dt.to_timestamp()
+            if period in ("M", "D")
+            else grp["OPEN_DT"].dt.start_time
+        )
+        grp = grp.rename(columns={metric_col: OUTPUT_ALIASES[metric_col]}).drop(
+            columns="OPEN_DT"
+        )
+
+        x_enc = alt.X(
+            "Period:T",
+            axis=alt.Axis(format=fmt, tickCount=tick),
+            title=view.split("(")[0].strip(),
+        )
+
+        return (
+            alt.Chart(grp)
+            .mark_bar()
+            .encode(
+                x=x_enc,
+                y=alt.Y(f"{OUTPUT_ALIASES[metric_col]}:Q"),
+                tooltip=list(grp.columns),
+            )
+            .properties(title=short_title, height=250)
+        )
+
+    col_door, col_store = st.columns(2)
+    with col_door:
+        st.subheader(f"{CAP_DOOR_NAME} door")
+        st.dataframe(
+            output_door_df,
+            use_container_width=True,
+            height=250,
+            hide_index=True,
+            column_config={
+                "Open date": st.column_config.DatetimeColumn(
+                    "Open date", format="YYYY-MM-DD"
+                ),
+            },
+        )
+    with col_store:
+        st.subheader("Store total")
+        st.dataframe(
+            output_store_df,
+            use_container_width=True,
+            height=250,
+            hide_index=True,
+            column_config={
+                "Open date": st.column_config.DatetimeColumn(
+                    "Open date", format="YYYY-MM-DD"
+                ),
+            },
+        )
+    with col_door:
+        st.altair_chart(
+            build_chart(
+                df_all,
+                "DAILY_VISITS_NUM",
+                f"{CAP_DOOR_NAME} - {OUTPUT_ALIASES['DAILY_VISITS_NUM']}",
+            ),
+            use_container_width=True,
+        )
+    with col_store:
+        st.altair_chart(
+            build_chart(
+                store_df, "TOT_DAILY_VISITS_NUM", OUTPUT_ALIASES["TOT_DAILY_VISITS_NUM"]
+            ),
+            use_container_width=True,
+        )
+
+    if show_avg:
+        col_door, col_store = st.columns(2)
+        with col_door:
+            st.altair_chart(
+                build_chart(
+                    df_all,
+                    "AVG_DAILY_VISITS_NUM",
+                    f"{CAP_DOOR_NAME} — {OUTPUT_ALIASES['AVG_DAILY_VISITS_NUM']}",
+                ),
+                use_container_width=True,
+            )
+        with col_store:
+            st.altair_chart(
+                build_chart(
+                    store_df,
+                    "TOT_AVG_DAILY_VISITS_NUM",
+                    f"Store {OUTPUT_ALIASES["TOT_AVG_DAILY_VISITS_NUM"]}",
+                ),
+                use_container_width=True,
+            )
 else:
     st.info("Select a door to analyse")
