@@ -140,7 +140,7 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
             if is_last_day_of_month(current_date) or current_date == date.today():
                 month_id = str(extract_date_id(business_date))[:6]
                 with open(
-                    f"{raw_data_file_path}{FILE_PATH_RAW_DATA}store_data_{month_id}.csv",
+                    f"{raw_data_file_path}/{FILE_PATH_RAW_DATA}/store_data_{month_id}.csv",
                     "w",
                     encoding="UTF-8",
                 ) as file:
