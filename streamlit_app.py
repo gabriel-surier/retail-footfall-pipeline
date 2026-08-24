@@ -99,7 +99,12 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
             ,TOT_AVG_DAILY_VISITS_NUM 
             ,TOT_PCT_CHANGE 
         FROM read_parquet('{parquet_file}')
-        WHERE DAILY_VISITS_NUM<>0
+        -- We need 4 week to have good analyzes from
+        -- window function
+        WHERE date_trunc('week', OPEN_DT) > (
+        SELECT date_trunc('week', MIN(OPEN_DT)) + INTERVAL 4 WEEK
+        FROM read_parquet('{parquet_file}')
+        )
         ORDER BY DATE_ID DESC
     """).df()
 
@@ -185,7 +190,7 @@ if option is not None:
             "Week",
             weeks,
             index=default_idx,
-            format_func=lambda p: f"{p.start_time:%d %b} - {p.end_time:%d %b}",
+            format_func=lambda p: f"{p.start_time:%d %b} - {p.end_time:%d %b %Y}",
         )
 
     def filter_period(
@@ -331,7 +336,7 @@ if option is not None:
                 build_chart(
                     df_all,
                     "AVG_DAILY_VISITS_NUM",
-                    f"{CAP_DOOR_NAME} — {OUTPUT_ALIASES['AVG_DAILY_VISITS_NUM']}",
+                    f"{CAP_DOOR_NAME} - {OUTPUT_ALIASES['AVG_DAILY_VISITS_NUM']}",
                 ),
                 use_container_width=True,
             )
