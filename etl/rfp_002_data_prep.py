@@ -72,6 +72,8 @@ if not csv_files:
 visits_df = duckdb.execute(
     "SELECT * FROM read_csv(?, union_by_name=true)", [csv_files]
 ).df()
+
+# print(visits_df.where(f"Date_ID=='20260824'"))
 # ===============================================
 # FUNCTIONS
 # ===============================================
@@ -90,10 +92,17 @@ def generate_parquet(
 
     data_file_path: Path = Path(dir_path) / f"{file_name}.parquet"
 
+    # 2026-08-24: Fix output data by correcting hour concatenation
+    if file_name[:2] == "dm":
+        pandas_subset = ["DATE_ID", "SENSOR_ID"]
+    else:
+        pandas_subset = ["DATE_ID", "SENSOR_ID", "HOUR_NUM"]
+    print(file_name[:2])
     if data_file_path.exists():
         f_df = pd.read_parquet(data_file_path)
+
         updt_f_df = pd.concat([f_df, df_to_parquet], ignore_index=True).drop_duplicates(
-            subset=["DATE_ID", "SENSOR_ID"], keep="last"
+            subset=pandas_subset, keep="last"
         )
 
         updt_f_df.to_parquet(data_file_path)
@@ -139,6 +148,6 @@ PARQUET_FILE_PATH: str = f"{interim_data_dir}/{INTERIM_FILE_NAME}.parquet"
 
 
 # We put this in a .parquet file in a proceesed folder.
-
-updt_dm_fact_visits_df = duckdb.execute(QUERY_TWO, [PARQUET_FILE_PATH]).df()
-generate_parquet(PROCESSED_FILE_NAME, processed_data_dir, updt_dm_fact_visits_df)
+if __name__ == "__main__":
+    updt_dm_fact_visits_df = duckdb.execute(QUERY_TWO, [PARQUET_FILE_PATH]).df()
+    generate_parquet(PROCESSED_FILE_NAME, processed_data_dir, updt_dm_fact_visits_df)
