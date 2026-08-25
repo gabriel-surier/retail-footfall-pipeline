@@ -1,34 +1,59 @@
 """
 @File    :   rfp_001_extract_data.py
-@Time    :   2020/8/31
+@Time    :   2026-08-31
 @Author  :   Gabriel SURIER
 @Purpose :   Create csv dataset for storing sensor data month by month
             here they are stocked in data/raw, but in a real environment,
             we will use S3 or maybe an ODS in a database.
+@Refacto :  2026-08-26 :
+            - renaming rfp_fl001_0100_api_csv_extract_data.py to respect the new
+            data convention
+            - add pydantic to have the same use case in every file
+            - switching to minio S3 to separate data ETL and visualization
 """
 
 from datetime import date, datetime, timedelta
 from pathlib import Path
-import os
-import calendar
 
+import calendar
 import requests
 import pandas as pd
-from dotenv import load_dotenv
 
-load_dotenv()
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from etl.rfp_fl001_9999_config_s3 import get_s3_client, upload_file
+
+
+
+
 
 # ===============================================
 # ENVIRONMENT VAR
 # ===============================================
-FILE_PATH_RAW_DATA = os.getenv("FILE_PATH_RAW_DATA")
+class Settings(BaseSettings):
+    """
+    Import Settings from .env file with pydantic settings
+    """
 
-API_BASE_URL = os.getenv("API_BASE_URL")
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parent.parent / ".env"
+    )
 
-DATA_LOAD_MOD = os.getenv("DATA_LOAD_MOD")
-DATA_LOAD_INIT_DATE: str = str(os.getenv("DATA_LOAD_INIT_DATE"))
+    file_path_raw_data: str = "01_raw"
+    file_path_inter_data: str = "02_interim"
+    file_path_pro_data: str = "03_processed"
+    debug: bool = False
+    data_load_mod: str = "DELTA"
+    data_load_delta: int = 2
+    api_base_url: str = "http://127.0.0.1:8000"
+    minio_root_user: str = ""
+    minio_root_password: str = ""
+    minio_bucket: str = ""
+    minio_endpoint: str = "http://minio:9000"
+    data_load_init_date: date = date(2026, 1, 1)
 
-DEBUG = os.getenv("DEBUG")
+
+settings = Settings()
+
 
 # ===============================================
 # FILE VAR
@@ -46,15 +71,17 @@ ref_door: dict = {
 df_door_id = pd.DataFrame(ref_door["sensors_referential"])
 
 # Make a delta load mod for orchestration
-start_date: date = date(2026, 1, 1)  # default for initialize date type
-if DATA_LOAD_MOD == "INIT":
-    start_date = date.fromisoformat(DATA_LOAD_INIT_DATE)
+
+if settings.data_load_delta == "INIT":
+    start_date = settings.data_load_init_date
 else:
     start_date = date.today().replace(day=1)
+
+
 END_DATE: date = date.today()
 current_timestamp_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 raw_data_file_path = Path(__file__).resolve().parent
-
+client = get_s3_client(settings)
 # ===============================================
 # EXTRACT PIPELINE
 # ===============================================
@@ -92,9 +119,7 @@ def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
     :return: dataframe sensor_df
     """
     # declare variables
-    get_url = (
-        f"{API_BASE_URL}/door-visits?open_date={business_date}&door_name={door_name}"
-    )
+    get_url = f"{settings.api_base_url}/door-visits?open_date={business_date}&door_name={door_name}"
     date_id = extract_date_id(business_date)
     # api call
     response_dict = requests.get(get_url, timeout=300).json()
@@ -139,12 +164,23 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
                 output_df = pd.concat([output_df, sensor_df], ignore_index=True)
             if is_last_day_of_month(current_date) or current_date == date.today():
                 month_id = str(extract_date_id(business_date))[:6]
+                file_path = (
+                    raw_data_file_path
+                    / settings.file_path_raw_data
+                    / f"store_data_{month_id}.csv"
+                )
                 with open(
-                    f"{raw_data_file_path}/{FILE_PATH_RAW_DATA}/store_data_{month_id}.csv",
+                    file_path,
                     "w",
                     encoding="UTF-8",
                 ) as file:
                     output_df.to_csv(file, index=False)
+                    upload_file(
+                        client,
+                        file_path,
+                        settings.minio_bucket,
+                        str(settings.file_path_raw_data),
+                    )
                     file.close()
 
                 output_df = pd.DataFrame()

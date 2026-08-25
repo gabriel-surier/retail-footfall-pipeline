@@ -1,21 +1,26 @@
 """
 @File    :   rfp_002_data_prep.py
-@Time    :   2020/08/01
+@Time    :   2026-08-01
 @Author  :   Gabriel SURIER
 @Purpose :   Prepare the data before inserting into duckdb
              Here we need to analyze all files data to retrieve
              the provoked data quality problems
+@Refacto :  2026-08-26 :
+            - renaming rfp_fl001_0200_csv_parquet_extract_data.py to respect the new
+            data convention
+            - modify pydantic implementation
+            - switching to minio S3 to separate data ETL and visualization
 """
 
 from pathlib import Path
+from datetime import date
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 import pandas as pd
 import duckdb
 
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from etl.rfp_fl001_9999_config_s3 import get_s3_client, upload_file, list_csv_files_s3
 
-load_dotenv()
 
 
 # ===============================================
@@ -26,42 +31,66 @@ class Settings(BaseSettings):
     Import Settings from .env file with pydantic settings
     """
 
-    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parent / ".env")
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parent.parent / ".env"
+    )
 
-    file_path_raw_data: str = "01_raw"
-    file_path_inter_data: str = "02_interim"
-    file_path_pro_data: str = "03_processed"
+    file_path_raw_data: Path = Path("data/01_raw")
+    file_path_inter_data: Path = Path("data/02_interim")
+    file_path_pro_data: Path = Path("data/03_processed")
     debug: bool = False
-    data_load_mod: str = "INIT"
+    data_load_mod: str = "DELTA"
+    data_load_delta: int = 2
+    api_base_url: str = "http://127.0.0.1:8000"
+    minio_root_user: str = ""
+    minio_root_password: str = ""
+    minio_bucket: str = ""
+    minio_endpoint: str = "http://minio:9000"
+    data_load_init_date: date = date(2026, 1, 1)
 
 
 settings = Settings()
 
-print(settings.file_path_raw_data)
-FILE_PATH_RAW_DATA: str = settings.file_path_raw_data
-FILE_PATH_INTER_DATA: str = settings.file_path_inter_data
-FILE_PATH_PRO_DATA: str = settings.file_path_pro_data
-DEBUG: bool = settings.debug
-DATA_LOAD_MOD: str = settings.data_load_mod
 
 # ===============================================
 # FILE VAR
 # ===============================================
 
-raw_data_dir: Path = Path(__file__).resolve().parent / FILE_PATH_RAW_DATA
-interim_data_dir: Path = Path(__file__).resolve().parent / FILE_PATH_INTER_DATA
-processed_data_dir: Path = Path(__file__).resolve().parent / FILE_PATH_PRO_DATA
+raw_data_dir: Path = Path(__file__).resolve().parent / settings.file_path_raw_data
+
+interim_data_dir: Path = Path(__file__).resolve().parent / settings.file_path_inter_data
+processed_data_dir: Path = Path(__file__).resolve().parent / settings.file_path_pro_data
 sql_dir: Path = Path(__file__).resolve().parent / "sqlq"
+
+
 INTERIM_FILE_NAME: str = "dwh_fact_visits"
 PROCESSED_FILE_NAME: str = "dm_fact_visits"
 
+SQL_INT_FILE_PATH: Path = sql_dir / f"{INTERIM_FILE_NAME}.sql"
+SQL_PRO_FILE_PATH: Path = sql_dir / f"{PROCESSED_FILE_NAME}.sql"
+
+PARQUET_INT_FILE_PATH: Path = (
+    settings.file_path_inter_data / f"{INTERIM_FILE_NAME}.parquet"
+)
+PARQUET_PRO_FILE_PATH: Path = (
+    settings.file_path_pro_data / f"{PROCESSED_FILE_NAME}.parquet"
+)
+
+
 # ===============================================
-# DATA PREP VAR
+# FILE VAR
 # ===============================================
+
+# Get S3 client
+
+client = get_s3_client(settings)
 
 # Get all data in one dataframe
 
-csv_files = [str(f) for f in Path(raw_data_dir).glob("*.csv") if f.stat().st_size > 0]
+csv_files = list_csv_files_s3(
+    client, settings.minio_bucket, settings.file_path_raw_data
+)
+# csv_files = [str(f) for f in Path(raw_data_dir).glob("*.csv") if f.stat().st_size > 0]
 
 # Raise error if no files are found. In reality cases, we will push an e-mail and log it in a table.
 
@@ -73,7 +102,7 @@ visits_df = duckdb.execute(
     "SELECT * FROM read_csv(?, union_by_name=true)", [csv_files]
 ).df()
 
-# print(visits_df.where(f"Date_ID=='20260824'"))
+
 # ===============================================
 # FUNCTIONS
 # ===============================================
@@ -97,7 +126,7 @@ def generate_parquet(
         pandas_subset = ["DATE_ID", "SENSOR_ID"]
     else:
         pandas_subset = ["DATE_ID", "SENSOR_ID", "HOUR_NUM"]
-    print(file_name[:2])
+
     if data_file_path.exists():
         f_df = pd.read_parquet(data_file_path)
 
@@ -110,7 +139,7 @@ def generate_parquet(
         df_to_parquet.to_parquet(data_file_path)
         updt_f_df = df_to_parquet
     # Check date formats
-    if DEBUG:
+    if settings.debug:
         print(
             f"File correctly write in : \n{data_file_path}\n\nVerify date format :"
             f" \n\n{updt_f_df.head(10)} \n"
@@ -125,7 +154,8 @@ def generate_parquet(
 # This query harmonize all data to do all the calculations
 # Reference : sqlq/dwh_fact_visits.sql
 
-with open(f"{sql_dir}/{INTERIM_FILE_NAME}.sql", encoding="UTF-8") as file:
+
+with open(SQL_INT_FILE_PATH, encoding="UTF-8") as file:
     QUERY_ONE = file.read()
     file.close()
 
@@ -133,7 +163,9 @@ with open(f"{sql_dir}/{INTERIM_FILE_NAME}.sql", encoding="UTF-8") as file:
 
 updt_dwh_fact_visits_df = duckdb.query(QUERY_ONE).df()
 generate_parquet(INTERIM_FILE_NAME, interim_data_dir, updt_dwh_fact_visits_df)
-
+upload_file(
+    client, PARQUET_INT_FILE_PATH, settings.minio_bucket, settings.file_path_inter_data
+)
 
 # This query detect abnormal number of visits
 # Reference : sqlq/dm_fact_visits.sql
@@ -141,13 +173,16 @@ generate_parquet(INTERIM_FILE_NAME, interim_data_dir, updt_dwh_fact_visits_df)
 # With big dataset I prefer the parquet for performance.
 
 
-with open(f"{sql_dir}/{PROCESSED_FILE_NAME}.sql", encoding="UTF-8") as file:
+with open(SQL_PRO_FILE_PATH, encoding="UTF-8") as file:
     QUERY_TWO = file.read()
-    file.close()
-PARQUET_FILE_PATH: str = f"{interim_data_dir}/{INTERIM_FILE_NAME}.parquet"
 
-
-# We put this in a .parquet file in a proceesed folder.
 if __name__ == "__main__":
-    updt_dm_fact_visits_df = duckdb.execute(QUERY_TWO, [PARQUET_FILE_PATH]).df()
+    query_two_filled = QUERY_TWO.replace("?", f"'{PARQUET_INT_FILE_PATH.as_posix()}'")
+    updt_dm_fact_visits_df = duckdb.sql(query_two_filled).df()
     generate_parquet(PROCESSED_FILE_NAME, processed_data_dir, updt_dm_fact_visits_df)
+    upload_file(
+        client,
+        PARQUET_PRO_FILE_PATH,
+        settings.minio_bucket,
+        settings.file_path_pro_data,
+    )
