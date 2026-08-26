@@ -1,4 +1,4 @@
-/etl/data/
+/etl/tmp/
 *.csv
 /venv/
 tests/gabriel*.py

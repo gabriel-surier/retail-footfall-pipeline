@@ -19,40 +19,12 @@ import calendar
 import requests
 import pandas as pd
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from etl.rfp_fl001_9999_config_s3 import get_s3_client, upload_file
+from pydantic_settings import BaseSettings, SettingsConfigDict, CliApp
+from src.config_s3 import get_s3_client, upload_file
+from etl import get_workspace, settings
 
 
 
-
-
-# ===============================================
-# ENVIRONMENT VAR
-# ===============================================
-class Settings(BaseSettings):
-    """
-    Import Settings from .env file with pydantic settings
-    """
-
-    model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parent.parent / ".env"
-    )
-
-    file_path_raw_data: str = "01_raw"
-    file_path_inter_data: str = "02_interim"
-    file_path_pro_data: str = "03_processed"
-    debug: bool = False
-    data_load_mod: str = "DELTA"
-    data_load_delta: int = 2
-    api_base_url: str = "http://127.0.0.1:8000"
-    minio_root_user: str = ""
-    minio_root_password: str = ""
-    minio_bucket: str = ""
-    minio_endpoint: str = "http://minio:9000"
-    data_load_init_date: date = date(2026, 1, 1)
-
-
-settings = Settings()
 
 
 # ===============================================
@@ -72,7 +44,7 @@ df_door_id = pd.DataFrame(ref_door["sensors_referential"])
 
 # Make a delta load mod for orchestration
 
-if settings.data_load_delta == "INIT":
+if settings.data_load_mod == "INIT":
     start_date = settings.data_load_init_date
 else:
     start_date = date.today().replace(day=1)
@@ -155,37 +127,35 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
     """
     output_df = pd.DataFrame()
     current_date = starting_date
-    while current_date <= end_date:
-        business_date = current_date.strftime("%Y-%m-%d")
-        if current_date.weekday() != 6:
-            for door_name in enumerate(ref_door["sensors_referential"]):
-                door_name = door_name[1]["door_name"]
-                sensor_df = extract_by_date(business_date, door_name)
-                output_df = pd.concat([output_df, sensor_df], ignore_index=True)
-            if is_last_day_of_month(current_date) or current_date == date.today():
-                month_id = str(extract_date_id(business_date))[:6]
-                file_path = (
-                    raw_data_file_path
-                    / settings.file_path_raw_data
-                    / f"store_data_{month_id}.csv"
-                )
-                with open(
-                    file_path,
-                    "w",
-                    encoding="UTF-8",
-                ) as file:
-                    output_df.to_csv(file, index=False)
+
+    with get_workspace() as workspace:
+        raw_dir = workspace / settings.file_path_raw_data
+        raw_dir.mkdir(parents=True, exist_ok=True)
+
+        while current_date <= end_date:
+            business_date = current_date.strftime("%Y-%m-%d")
+            if current_date.weekday() != 6:
+                for door_name in enumerate(ref_door["sensors_referential"]):
+                    door_name = door_name[1]["door_name"]
+                    sensor_df = extract_by_date(business_date, door_name)
+                    output_df = pd.concat([output_df, sensor_df], ignore_index=True)
+                if is_last_day_of_month(current_date) or current_date == date.today():
+                    month_id = str(extract_date_id(business_date))[:6]
+                    file_path = raw_dir / f"store_data_{month_id}.csv"
+
+                    with open(file_path, "w", encoding="UTF-8") as file:
+                        output_df.to_csv(file, index=False)
+
                     upload_file(
                         client,
                         file_path,
                         settings.minio_bucket,
-                        str(settings.file_path_raw_data),
+                        f"rfp_fl001/{settings.file_path_raw_data}",
                     )
-                    file.close()
 
-                output_df = pd.DataFrame()
+                    output_df = pd.DataFrame()
 
-        current_date += timedelta(days=1)
+            current_date += timedelta(days=1)
 
 
 if __name__ == "__main__":

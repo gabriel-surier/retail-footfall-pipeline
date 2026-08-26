@@ -1,5 +1,5 @@
 """
-@File    :   rfp_fl001_9999_config_s3.py
+@File    :   config_s3.py
 @Time    :   2026-08-26
 @Author  :   Gabriel SURIER
 @Purpose :   S3/MinIO client utilities for the RFP ETL pipeline.
@@ -28,7 +28,7 @@ def get_s3_client(settings: Any) -> Any:
     )
 
 
-def upload_file(client: Any, local_path: Path, bucket: str, prefix: Path | str) -> str:
+def upload_file(client: Any, local_path: Path, bucket: str, prefix: str) -> str:
     """Upload a local file to an S3 bucket under the given prefix.
 
     Args:
@@ -57,7 +57,7 @@ def download_file(client: Any, bucket: str, key: str, local_path: Path) -> None:
     client.download_file(bucket, key, str(local_path))
 
 
-def list_csv_files_s3(client: Any, bucket: str, prefix: Path | str) -> list[str]:
+def list_csv_files_s3(client: Any, bucket: str, prefix: str) -> list[str]:
     """List non-empty CSV file keys in an S3 bucket under a given prefix.
 
     Args:
@@ -68,8 +68,6 @@ def list_csv_files_s3(client: Any, bucket: str, prefix: Path | str) -> list[str]
     Returns:
         A list of S3 keys ending in '.csv' with a non-zero size.
     """
-    # Cast to str in case a Path object is passed, since boto3 expects a string
-    prefix = str(prefix)
     paginator = client.get_paginator("list_objects_v2")
     csv_files: list[str] = []
     for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
