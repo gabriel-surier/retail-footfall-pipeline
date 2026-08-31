@@ -19,14 +19,19 @@ door_dict: dict = create_app()
 
 app = FastAPI()
 
+
 @app.get("/door-health")
 def get_health():
+    """
+    get health endpoint for CD
+    :return: content response with health status
+    """
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "responseCode": status.HTTP_200_OK,
             "responseMessage": "Endpoint related to provider door visits is online",
-        }
+        },
     )
 
 

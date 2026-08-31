@@ -42,11 +42,9 @@ class Settings(BaseSettings):
         data_load_init_date: Initial date used for full data loads.
     """
 
-    model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parent.parent / ".env"
-    )
-
     project_root: Path = Path(__file__).resolve().parent.parent
+    model_config = SettingsConfigDict(env_file=project_root / ".env")
+
     run_id: str = Field(default="local", alias="AIRFLOW_CTX_DAG_RUN_ID")
 
     file_path_raw_data: str = "01_raw"
@@ -62,6 +60,11 @@ class Settings(BaseSettings):
     minio_endpoint: str = "http://minio:9000"
     data_load_init_date: date = date(2026, 1, 1)
     environment: str = "DEV"
+    # unused
+    python_version: float = 3.12
+    app_port: int = 8002
+    host_port: int = 8002
+
 
 settings: Settings = Settings()
 
@@ -85,7 +88,7 @@ def get_workspace() -> Iterator[Path]:
     Yields:
         Path to the shared working directory for this run.
     """
-    if settings.environment=="DEV":
+    if settings.environment == "DEV":
         workspace = settings.project_root / "etl" / "tmp"
         logger.info("Development mode active: persistent workspace at %s", workspace)
     else:

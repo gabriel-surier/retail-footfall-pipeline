@@ -19,13 +19,8 @@ import calendar
 import requests
 import pandas as pd
 
-from pydantic_settings import BaseSettings, SettingsConfigDict, CliApp
 from src.config_s3 import get_s3_client, upload_file
 from etl import get_workspace, settings
-
-
-
-
 
 # ===============================================
 # FILE VAR
@@ -40,7 +35,7 @@ ref_door: dict = {
         {"sensor_id": 4, "door_name": "west"},
     ]
 }
-df_door_id = pd.DataFrame(ref_door["sensors_referential"])
+df_door_id: pd.DataFrame = pd.DataFrame(ref_door["sensors_referential"])
 
 # Make a delta load mod for orchestration
 

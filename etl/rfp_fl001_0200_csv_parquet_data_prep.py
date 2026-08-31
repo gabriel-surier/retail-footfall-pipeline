@@ -13,16 +13,13 @@
 """
 
 from pathlib import Path
-from datetime import date
+
 
 import pandas as pd
 import duckdb
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from src.config_s3 import get_s3_client, upload_file, list_csv_files_s3
-from etl import settings,get_workspace
-
-
+from src.config_s3 import get_s3_client, upload_file
+from etl import settings, get_workspace
 
 # ===============================================
 # FILE VAR
@@ -39,15 +36,11 @@ with get_workspace() as workspace:
     interim_data_dir = workspace / settings.file_path_inter_data
     processed_data_dir = workspace / settings.file_path_pro_data
     PARQUET_INT_FILE_PATH = interim_data_dir / f"{INTERIM_FILE_NAME}.parquet"
-    PARQUET_PRO_FILE_PATH: Path = (
-            processed_data_dir / f"{PROCESSED_FILE_NAME}.parquet"
-    )
+    PARQUET_PRO_FILE_PATH: Path = processed_data_dir / f"{PROCESSED_FILE_NAME}.parquet"
 
 
 SQL_INT_FILE_PATH: Path = sql_dir / f"{INTERIM_FILE_NAME}.sql"
 SQL_PRO_FILE_PATH: Path = sql_dir / f"{PROCESSED_FILE_NAME}.sql"
-
-
 
 
 # ===============================================
@@ -80,7 +73,7 @@ visits_df = duckdb.execute(
 
 
 def generate_parquet(
-    sql_file_path: Path,file_name: str, dir_path: Path,parquet_file_path: Path | None
+    sql_file_path: Path, file_name: str, dir_path: Path, parquet_file_path: Path | None
 ) -> None:
     """
     Generate a parquet file  with a specific name in a selected file path
@@ -95,7 +88,7 @@ def generate_parquet(
             sql_query = file.read().replace("?", f"'{parquet_file_path.as_posix()}'")
         else:
             sql_query = file.read()
-    df_to_parquet=duckdb.query(sql_query).df()
+    df_to_parquet = duckdb.query(sql_query).df()
     data_file_path: Path = Path(dir_path) / f"{file_name}.parquet"
 
     # 2026-08-24: Fix output data by correcting hour concatenation
@@ -121,18 +114,26 @@ def generate_parquet(
             f" \n\n{updt_f_df.head(10)} \n"
         )
 
-if __name__ == "__main__":
-        bucket_flow_name: str = "rfp_fl001"
-        generate_parquet(SQL_INT_FILE_PATH, INTERIM_FILE_NAME, interim_data_dir, None)
-        generate_parquet(SQL_PRO_FILE_PATH, PROCESSED_FILE_NAME, processed_data_dir, PARQUET_INT_FILE_PATH)
-        upload_file(
-            client, PARQUET_INT_FILE_PATH, settings.minio_bucket,
-            f"{bucket_flow_name}/{settings.file_path_inter_data}"
-        )
 
-        upload_file(
-            client,
-            processed_data_dir / f"{PROCESSED_FILE_NAME}.parquet",
-            settings.minio_bucket,
-            f"{bucket_flow_name}/{settings.file_path_pro_data}",
-        )
+if __name__ == "__main__":
+    BUCK_FLOW_NAME: str = "rfp_fl001"
+    generate_parquet(SQL_INT_FILE_PATH, INTERIM_FILE_NAME, interim_data_dir, None)
+    generate_parquet(
+        SQL_PRO_FILE_PATH,
+        PROCESSED_FILE_NAME,
+        processed_data_dir,
+        PARQUET_INT_FILE_PATH,
+    )
+    upload_file(
+        client,
+        PARQUET_INT_FILE_PATH,
+        settings.minio_bucket,
+        f"{BUCK_FLOW_NAME}/{settings.file_path_inter_data}",
+    )
+
+    upload_file(
+        client,
+        processed_data_dir / f"{PROCESSED_FILE_NAME}.parquet",
+        settings.minio_bucket,
+        f"{BUCK_FLOW_NAME}/{settings.file_path_pro_data}",
+    )
