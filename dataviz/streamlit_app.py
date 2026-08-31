@@ -11,48 +11,32 @@
 # ===============================================
 from pathlib import Path
 from typing import Literal
+import tempfile
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 import altair as alt
 import streamlit as st
 import duckdb
 import pandas as pd
 
-# ===============================================
-# ENVIRONMENT VAR
-# ===============================================
 
-
-class Settings(BaseSettings):
-    """
-    Import Settings from .env file with pydantic settings
-    """
-
-    model_config = SettingsConfigDict(env_file=".env")
-
-    file_path_pro_data: str = "data/03_processed"
-    debug: bool = False
-
-    # Unused
-    file_path_raw_data: str = ""
-    file_path_inter_data: str = ""
-    data_load_mod: str = ""
-    data_load_init_date: str = ""
-    api_base_url: str = ""
-
-
-settings = Settings()
+from dataviz import settings
+from src.config_s3 import get_s3_client, download_file
 
 # ===============================================
 # File variables
 # ===============================================
 
-FILE_PATH_PRO_DATA: Path = (
-    Path(__file__).resolve().parent
-    / "etl"
-    / settings.file_path_pro_data
-    / "dm_fact_visits.parquet"
+client = get_s3_client(settings)
+print(f"{settings.file_path_pro_data}/dm_fact_visits.parquet")
+print(f"test : {settings.minio_bucket}")
+FILE_PATH_PRO_DATA: Path = Path(tempfile.gettempdir()) / "dm_fact_visits.parquet"
+download_file(
+    client,
+    bucket=settings.minio_bucket,
+    key=f"rfp_fl001/{settings.file_path_pro_data}/dm_fact_visits.parquet",
+    local_path=FILE_PATH_PRO_DATA,
 )
+
 DEBUG: bool = settings.debug
 
 # ===============================================
