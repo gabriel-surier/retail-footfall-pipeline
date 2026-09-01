@@ -19,8 +19,7 @@ import calendar
 import requests
 import pandas as pd
 
-from src.config_s3 import get_s3_client, upload_file
-from etl import get_workspace, settings
+from src.rfp_config import get_s3_client, upload_file, get_workspace, settings
 
 # ===============================================
 # FILE VAR

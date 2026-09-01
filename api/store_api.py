@@ -13,7 +13,7 @@ from datetime import date
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette import status
-from src import create_app
+from src.sensor import create_app
 
 door_dict: dict = create_app()
 

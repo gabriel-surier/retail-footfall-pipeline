@@ -19,8 +19,7 @@ import duckdb
 import pandas as pd
 
 
-from dataviz import settings
-from src.config_s3 import get_s3_client, download_file
+from src.rfp_config import get_s3_client, download_file, settings
 
 # ===============================================
 # File variables

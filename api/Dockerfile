@@ -10,10 +10,9 @@ WORKDIR /app
 COPY /api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY api/__init__.py ./api/__init__.py
-COPY api/store_api.py ./api/store_api.py
-COPY src/sensor.py ./src/sensor.py
-COPY src/__init__.py ./src/__init__.py
+COPY api/ ./api/
+COPY src/sensor/ ./src/sensor/
+
 # ARG does not persist to runtime; promoted to ENV so the port
 # is available both at build (EXPOSE) and at container start.
 ARG APP_PORT=8002

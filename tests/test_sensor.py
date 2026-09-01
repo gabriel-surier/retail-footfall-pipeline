@@ -8,7 +8,7 @@
 import unittest
 from datetime import date
 
-from src.sensor import AttendanceSensor  # pylint: disable=import-error
+from src import AttendanceSensor  # pylint: disable=import-error
 
 
 class TestAttendanceSensor(unittest.TestCase):

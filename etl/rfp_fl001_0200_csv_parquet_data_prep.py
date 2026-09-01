@@ -18,8 +18,7 @@ from pathlib import Path
 import pandas as pd
 import duckdb
 
-from src.config_s3 import get_s3_client, upload_file
-from etl import settings, get_workspace
+from src.rfp_config import get_s3_client, upload_file, get_workspace, settings
 
 # ===============================================
 # FILE VAR
