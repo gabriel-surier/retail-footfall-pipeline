@@ -8,7 +8,9 @@
 import unittest
 from datetime import date
 
-from src import AttendanceSensor  # pylint: disable=import-error
+# I chose the import-untyped ignore for Docker simplification
+
+from src.sensor import AttendanceSensor  # type: ignore[import-untyped]
 
 
 class TestAttendanceSensor(unittest.TestCase):
