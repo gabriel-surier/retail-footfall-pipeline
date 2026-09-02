@@ -91,11 +91,12 @@ class Settings(BaseSettings):
     airflow_version: str
     airflow_port: int
     airflow_user: str
-    postgres_password: SecretStr
-    postgres_db: str
     airflow_admin_user: str
     airflow_admin_password: SecretStr
     airflow_admin_email: str
+    postgres_user: str
+    postgres_password: SecretStr
+    postgres_db: str
 
 
 settings: Settings = Settings()  # noqa
