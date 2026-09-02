@@ -1,0 +1,30 @@
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+extend-exclude = '''
+(
+  venv/
+  | \.venv/
+  | sandbox/
+)
+'''
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+strict = false
+disallow_any_explicit = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = ["venv/", "\\.venv/", "sandbox/"]
+
+[[tool.mypy.overrides]]
+module = ["airflow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["boto3.*"]
+ignore_missing_imports = true
+
+[tool.pylint.MAIN]
+ignore = ["venv", "sandbox"]
+ignore-patterns = ["^\\.venv$"]

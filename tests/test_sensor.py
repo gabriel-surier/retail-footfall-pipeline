@@ -10,7 +10,7 @@ from datetime import date
 
 # I chose the import-untyped ignore for Docker simplification
 
-from src.sensor import AttendanceSensor  # type: ignore[import-untyped]
+from src.sensor import AttendanceSensor
 
 
 class TestAttendanceSensor(unittest.TestCase):

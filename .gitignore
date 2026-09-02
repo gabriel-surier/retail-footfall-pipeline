@@ -1,6 +1,7 @@
 /etl/tmp/
 *.csv
 /venv/
-tests/gabriel*.py
+/sandbox/
 .idea/
 __pycache__
+.env
