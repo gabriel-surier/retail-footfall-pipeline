@@ -53,7 +53,7 @@ class Settings(BaseSettings):
 
     # --- Python config ---
 
-    python_version: float
+    python_version: str
 
     # --- File path config ---
 
@@ -94,9 +94,12 @@ class Settings(BaseSettings):
     airflow_admin_user: str
     airflow_admin_password: SecretStr
     airflow_admin_email: str
+    airflow_jwt_secret: SecretStr
     postgres_user: str
     postgres_password: SecretStr
     postgres_db: str
+    # --- Docker config ---
+    docker_gid: int = Field(default="9999")
 
 
 settings: Settings = Settings()  # noqa

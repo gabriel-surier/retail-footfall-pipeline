@@ -10,17 +10,17 @@ WORKDIR /opt/airflow
 # to avoid busting the pip cache on every code change.
 # Switched to airflow user: the base image forbids pip install as root.
 USER airflow
-COPY requirements.txt .
+
+COPY orchestration/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY dags/ ./dags/
-COPY etl/ ./etl/
-COPY src/__init__.py ./src/__init__.py
-COPY src/rfp_config.py ./src/rfp_config.py
+COPY orchestration/dags/ ./dags/
+
 
 # ARG does not persist to runtime; promoted to ENV so the port
 # is available both at build (EXPOSE) and at container start.
-ARG AIRFLOW_PORT=8080
+
+ARG AIRFLOW_PORT=8085
 ENV AIRFLOW_PORT=${AIRFLOW_PORT}
 EXPOSE ${AIRFLOW_PORT}
 

@@ -28,3 +28,18 @@ ignore_missing_imports = true
 [tool.pylint.MAIN]
 ignore = ["venv", "sandbox"]
 ignore-patterns = ["^\\.venv$"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retail-footfall-pipeline"
+version = "0.1.0"
+description = "Retail footfall ETL pipeline"
+requires-python = ">=3.12"
+
+#setup custom for current repository
+
+[tool.setuptools]
+packages = ["etl", "src"]
