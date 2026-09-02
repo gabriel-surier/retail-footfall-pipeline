@@ -18,7 +18,7 @@ import tempfile
 import boto3
 
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -46,31 +46,59 @@ class Settings(BaseSettings):
         data_load_init_date: Initial date used for full data loads.
     """
 
+    # --- Environment path config ---
+
     project_root: Path = Path(__file__).resolve().parent.parent
     model_config = SettingsConfigDict(env_file=project_root / ".env")
 
-    run_id: str = Field(default="local", alias="AIRFLOW_CTX_DAG_RUN_ID")
+    # --- Python config ---
 
-    file_path_raw_data: str = "01_raw"
-    file_path_inter_data: str = "02_interim"
-    file_path_pro_data: str = "03_processed"
+    python_version: float
+
+    # --- File path config ---
+
+    file_path_raw_data: str
+    file_path_inter_data: str
+    file_path_pro_data: str
+
+    # --- Debug config ---
+
     debug: bool = False
-    data_load_mod: str = "DELTA"
-    data_load_delta: int = 2
-    api_base_url: str = "http://127.0.0.1:8000"
-    minio_root_user: str = ""
-    minio_root_password: str = ""
-    minio_bucket: str = ""
-    minio_endpoint: str = "http://minio:9000"
-    data_load_init_date: date = date(2026, 1, 1)
-    environment: str = "DEV"
-    # unused
-    python_version: float = 3.12
-    app_port: int = 8002
-    host_port: int = 8002
+
+    # --- Data config ---
+
+    data_load_mod: str
+    data_load_delta: int
+    data_load_init_date: date
+
+    # --- API config ---
+
+    api_base_url: str
+    app_port: int
+    host_port: int
+
+    # --- minio config ---
+
+    minio_root_user: str
+    minio_root_password: str
+    minio_bucket: str
+    minio_endpoint: str
+    environment: str
+
+    # --- Airflow config ---
+
+    run_id: str = Field(default="local", alias="AIRFLOW_CTX_DAG_RUN_ID")
+    airflow_version: str
+    airflow_port: int
+    airflow_user: str
+    postgres_password: SecretStr
+    postgres_db: str
+    airflow_admin_user: str
+    airflow_admin_password: SecretStr
+    airflow_admin_email: str
 
 
-settings: Settings = Settings()
+settings: Settings = Settings()  # noqa
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -112,7 +140,7 @@ def get_workspace() -> Iterator[Path]:
 def get_s3_client(s3_settings: Any) -> Any:
     """Create and return a boto3 S3 client configured for MinIO.
     Args:
-        settings: Object exposing minio_endpoint, minio_root_user and
+        s3_settings: Object exposing minio_endpoint, minio_root_user and
             minio_root_password attributes.
 
     Returns:
