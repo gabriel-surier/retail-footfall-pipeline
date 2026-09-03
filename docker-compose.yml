@@ -96,6 +96,7 @@ services:
   # sets the username/role; the password is auto-generated and printed in
   # `docker logs api-server` on first start.
   airflow-init:
+    hostname: airflow-init
     build:
       context: .
       dockerfile: orchestration/Dockerfile
@@ -162,6 +163,7 @@ services:
   # invokes the etl-image by name/tag, it never imports or runs ETL code
   # itself.
   airflow-scheduler:
+    hostname: airflow-scheduler
     build:
       context: .
       dockerfile: orchestration/Dockerfile
@@ -194,6 +196,7 @@ services:
   # Only parses the DAG .py files (which just declare DockerOperator tasks),
   # so no ./etl, ./src, or docker.sock needed here either.
   airflow-dag-processor:
+    hostname: airflow-dag-processor
     build:
       context: .
       dockerfile: orchestration/Dockerfile
