@@ -50,5 +50,4 @@ with DAG(
         auto_remove="success",
         mount_tmp_dir=False,
     )
-
     first_task >> second_task  # pylint: disable=pointless-statement

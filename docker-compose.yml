@@ -102,7 +102,7 @@ services:
       dockerfile: orchestration/Dockerfile
       args:
         AIRFLOW_VERSION: ${AIRFLOW_VERSION}
-        PYTHON_VERSION: ${PYTHON_VERSION}
+        AIRFLOW_PYTHON_VERSION: ${AIRFLOW_PYTHON_VERSION}
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,13 +125,23 @@ services:
   # on the scheduler, not here. This container only serves the UI/API.
   # No ./etl or ./src volumes either: ETL code now lives exclusively in
   # the separate etl-image, never inside the Airflow containers.
+  #
+  # dags is mounted read-only (:ro). The container only ever needs to read
+  # DAG files to render them in the UI, never write to that path. Mounting
+  # it read-only permanently prevents the container from ever changing the
+  # ownership of files under ./orchestration/dags, which is what caused the
+  # host-side permission conflicts on that folder. Do not remove the :ro.
+  #
+  # logs stays local at ./orchestration/logs, already excluded via
+  # .gitignore, so git never touches it. The container writes here as
+  # user 50000, run once: sudo chown -R 50000:0 ./orchestration/logs
   api-server:
     build:
       context: .
       dockerfile: orchestration/Dockerfile
       args:
         AIRFLOW_VERSION: ${AIRFLOW_VERSION}
-        PYTHON_VERSION: ${PYTHON_VERSION}
+        AIRFLOW_PYTHON_VERSION: ${AIRFLOW_PYTHON_VERSION}
         AIRFLOW_PORT: ${AIRFLOW_PORT}
     container_name: api-server
     depends_on:
@@ -147,7 +157,7 @@ services:
     ports:
       - "${AIRFLOW_PORT}:${AIRFLOW_PORT}"
     volumes:
-      - ./orchestration/dags:/opt/airflow/dags
+      - ./orchestration/dags:/opt/airflow/dags:ro
       - ./orchestration/logs:/opt/airflow/logs
     command: api-server
     env_file:
@@ -162,6 +172,10 @@ services:
   # DockerOperator. Still no ./etl or ./src volumes: the scheduler only
   # invokes the etl-image by name/tag, it never imports or runs ETL code
   # itself.
+  #
+  # See api-server above for why dags is :ro and logs stays local. This is
+  # the container that actually writes task logs, so ./orchestration/logs
+  # must be writable by user 50000 on the host (see chown above).
   airflow-scheduler:
     hostname: airflow-scheduler
     build:
@@ -169,7 +183,7 @@ services:
       dockerfile: orchestration/Dockerfile
       args:
         AIRFLOW_VERSION: ${AIRFLOW_VERSION}
-        PYTHON_VERSION: ${PYTHON_VERSION}
+        AIRFLOW_PYTHON_VERSION: ${AIRFLOW_PYTHON_VERSION}
     container_name: airflow-scheduler
     depends_on:
       airflow-init:
@@ -182,7 +196,7 @@ services:
     group_add:
       - "${DOCKER_GID}"
     volumes:
-      - ./orchestration/dags:/opt/airflow/dags
+      - ./orchestration/dags:/opt/airflow/dags:ro
       - ./orchestration/logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
     command: scheduler
@@ -195,6 +209,8 @@ services:
   # no longer handled by the scheduler itself.
   # Only parses the DAG .py files (which just declare DockerOperator tasks),
   # so no ./etl, ./src, or docker.sock needed here either.
+  #
+  # See api-server above for why dags is :ro and logs stays local.
   airflow-dag-processor:
     hostname: airflow-dag-processor
     build:
@@ -202,7 +218,7 @@ services:
       dockerfile: orchestration/Dockerfile
       args:
         AIRFLOW_VERSION: ${AIRFLOW_VERSION}
-        PYTHON_VERSION: ${PYTHON_VERSION}
+        AIRFLOW_PYTHON_VERSION: ${AIRFLOW_PYTHON_VERSION}
     container_name: airflow-dag-processor
     depends_on:
       airflow-init:
@@ -212,7 +228,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
       AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW_JWT_SECRET}"
     volumes:
-      - ./orchestration/dags:/opt/airflow/dags
+      - ./orchestration/dags:/opt/airflow/dags:ro
       - ./orchestration/logs:/opt/airflow/logs
     command: dag-processor
     env_file:

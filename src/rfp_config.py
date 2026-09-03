@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     postgres_password: SecretStr
     postgres_db: str
     # --- Docker config ---
-    docker_gid: int = Field(default="9999")
+    docker_gid: int = Field(default=9999)
 
 
 settings: Settings = Settings()  # noqa
