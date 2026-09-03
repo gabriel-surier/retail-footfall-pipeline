@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # --- Python config ---
 
     python_version: str
+    airflow_python_version: str
 
     # --- File path config ---
 

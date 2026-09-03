@@ -1,8 +1,8 @@
 # Version pinned by default for reproducible builds; override via compose
 # build args if a service needs a different Airflow/Python combo.
 ARG AIRFLOW_VERSION=3.3.1
-ARG PYTHON_VERSION=3.12
-FROM apache/airflow:${AIRFLOW_VERSION}-python${PYTHON_VERSION}
+ARG AIRFLOW_PYTHON_VERSION=3.11
+FROM apache/airflow:${AIRFLOW_VERSION}-python${AIRFLOW_PYTHON_VERSION}
 
 WORKDIR /opt/airflow
 

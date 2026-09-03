@@ -4,5 +4,5 @@
 /sandbox/
 .idea/
 __pycache__
-.env
+*.env
 orchestration/logs/
