@@ -121,8 +121,8 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
     """
     output_df = pd.DataFrame()
     current_date = starting_date
-
-    with get_workspace() as workspace:
+    etl_workspace: str = "etl"
+    with get_workspace(etl_workspace) as workspace:
         raw_dir = workspace / settings.file_path_raw_data
         raw_dir.mkdir(parents=True, exist_ok=True)
 

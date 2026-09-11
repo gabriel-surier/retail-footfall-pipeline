@@ -1,4 +1,4 @@
-/etl/data/
+**/data/
 *.csv
 /venv/
 /sandbox/

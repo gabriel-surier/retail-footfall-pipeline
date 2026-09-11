@@ -112,7 +112,7 @@ logging.basicConfig(
 
 
 @contextmanager
-def get_workspace() -> Iterator[Path]:
+def get_workspace(workspace_name:str) -> Iterator[Path]:
     """Provide a working directory shared across the tasks of a run.
 
     Uses a persistent directory under the project root, shared across
@@ -124,16 +124,21 @@ def get_workspace() -> Iterator[Path]:
     Yields:
         Path to the shared working directory for this run.
     """
-    workspace = settings.project_root / "etl"
+    workspace = settings.project_root / workspace_name
     logger.info("Persistent workspace at %s", workspace)
 
-    for sub_dir in (
-        settings.file_path_raw_data,
-        settings.file_path_inter_data,
-        settings.file_path_pro_data,
-    ):
-        (workspace / sub_dir).mkdir(parents=True, exist_ok=True)
+    if workspace_name=="etl":
+        for sub_dir in (
 
+            settings.file_path_raw_data,
+            settings.file_path_inter_data,
+            settings.file_path_pro_data,
+        ):
+
+            (workspace / sub_dir).mkdir(parents=True, exist_ok=True)
+        else:
+            (workspace / settings.file_path_pro_data).mkdir(parents=True, exist_ok=True)
+            print(workspace / settings.file_path_pro_data)
     yield workspace
 
 

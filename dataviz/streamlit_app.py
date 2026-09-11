@@ -19,22 +19,23 @@ import duckdb
 import pandas as pd
 
 
-from src.rfp_config import get_s3_client, download_file, settings
+from src.rfp_config import get_s3_client, download_files, settings,get_workspace
 
 # ===============================================
 # File variables
 # ===============================================
 
 client = get_s3_client(settings)
-print(f"{settings.file_path_pro_data}/dm_fact_visits.parquet")
-print(f"test : {settings.minio_bucket}")
-FILE_PATH_PRO_DATA: Path = Path(tempfile.gettempdir()) / "dm_fact_visits.parquet"
-download_file(
-    client,
-    bucket=settings.minio_bucket,
-    key=f"rfp_fl001/{settings.file_path_pro_data}/dm_fact_visits.parquet",
-    local_path=FILE_PATH_PRO_DATA,
-)
+STREAMLIT_WORKSPACE:str="dataviz/data"
+FILE_PATH_PRO_DATA: Path = settings.project_root / Path(STREAMLIT_WORKSPACE)
+FILE_PATH_PARQUET: Path = FILE_PATH_PRO_DATA / "dm_fact_visits.parquet"
+with get_workspace(STREAMLIT_WORKSPACE) as workspace:
+    download_files(
+        client,
+        bucket=settings.minio_bucket,
+        prefix=f"rfp_fl001/{settings.file_path_pro_data}/dm_fact_visits.parquet",
+        dest_dir=FILE_PATH_PRO_DATA,
+    )
 
 DEBUG: bool = settings.debug
 
@@ -64,7 +65,7 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
     :param parquet_file: file to load
     :return: return a pandas dataframe
     """
-    return _db_con.execute(f"""
+    query = _db_con.execute(f"""
         SELECT 
              DATE_ID 
             ,SENSOR_ID
@@ -90,13 +91,14 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
         )
         ORDER BY DATE_ID DESC
     """).df()
+    return query
 
 
 # ===============================================
 # Main code
 # ===============================================
-
-dm_fact_visits_df = load_data(con, str(FILE_PATH_PRO_DATA))
+print(FILE_PATH_PARQUET)
+dm_fact_visits_df = load_data(con, str(FILE_PATH_PARQUET))
 door_sensor_list: tuple = tuple(sorted(dm_fact_visits_df["SENSOR_ID"].unique()))
 
 st.title("Store visits dashboard")
