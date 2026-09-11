@@ -115,22 +115,17 @@ logging.basicConfig(
 def get_workspace() -> Iterator[Path]:
     """Provide a working directory shared across the tasks of a run.
 
-    In debug mode, creates a persistent directory under the project
-    root so files can be inspected manually during development. In
-    normal mode, uses a directory under the system temp root, named
-    after settings.run_id, shared across all tasks of the same run so
-    intermediate files don't need to round-trip through MinIO between
-    pipeline steps.
+    Uses a persistent directory under the project root, shared across
+    all tasks of the same run so intermediate files don't need to
+    round-trip through MinIO between pipeline steps. Creates each
+    required subdirectory if it does not already exist; leaves it
+    untouched otherwise.
 
     Yields:
         Path to the shared working directory for this run.
     """
-    if settings.environment == "DEV":
-        workspace = settings.project_root / "etl" / "tmp"
-        logger.info("Development mode active: persistent workspace at %s", workspace)
-    else:
-        workspace = Path(tempfile.gettempdir()) / "rfp_etl" / settings.run_id
-        logger.info("Run %s: shared workspace at %s", settings.run_id, workspace)
+    workspace = settings.project_root / "etl"
+    logger.info("Persistent workspace at %s", workspace)
 
     for sub_dir in (
         settings.file_path_raw_data,

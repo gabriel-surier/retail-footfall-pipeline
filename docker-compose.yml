@@ -95,6 +95,7 @@ services:
   # which doesn't support that CLI. AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS below
   # sets the username/role; the password is auto-generated and printed in
   # `docker logs api-server` on first start.
+
   airflow-init:
     hostname: airflow-init
     build:
