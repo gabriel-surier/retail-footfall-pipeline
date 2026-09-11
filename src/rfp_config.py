@@ -14,9 +14,9 @@ from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 import logging
-import tempfile
-import boto3
 
+import boto3
+from botocore.config import Config
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -151,6 +151,13 @@ def get_s3_client(s3_settings: Any) -> Any:
         endpoint_url=s3_settings.minio_endpoint,
         aws_access_key_id=s3_settings.minio_root_user,
         aws_secret_access_key=s3_settings.minio_root_password,
+        region_name="us-east-1",
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        ),
     )
 
 
@@ -168,19 +175,33 @@ def upload_file(client: Any, local_path: Path, bucket: str, prefix: str) -> str:
     """
     key = f"{prefix}/{local_path.name}"
     client.upload_file(str(local_path), bucket, key)
+    logger.info("Local file upload on S3 bucket at %s", key)
     return key
 
 
-def download_file(client: Any, bucket: str, key: str, local_path: Path) -> None:
-    """Download a file from an S3 bucket to a local path.
+def download_files(client: Any, bucket: str, prefix: str, dest_dir: Path) -> None:
+    """Download every object under a prefix into a local directory.
 
     Args:
         client: A boto3 S3 client.
         bucket: Source S3 bucket name.
-        key: S3 object key to download.
-        local_path: Local destination path.
+        prefix: S3 key prefix under which the objects to download live.
+        dest_dir: Local directory to write the downloaded files into.
+
+    Raises:
+        FileNotFoundError: If no object exists under the given prefix.
     """
-    client.download_file(bucket, key, str(local_path))
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    response = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+    contents = response.get("Contents", [])
+
+    if not contents:
+        raise FileNotFoundError(f"ERROR : No objects found under {bucket}/{prefix}")
+
+    for obj in contents:
+        key = obj["Key"]
+        local_path = dest_dir / Path(key).name
+        client.download_file(bucket, key, str(local_path))
 
 
 def list_csv_files_s3(client: Any, bucket: str, prefix: str) -> list[str]:

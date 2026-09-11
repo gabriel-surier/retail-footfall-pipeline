@@ -31,10 +31,6 @@ services:
       /bin/sh -c "
       mc alias set myminio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
       mc mb --ignore-existing myminio/retail-footfall-pipeline;
-      mc mb --ignore-existing myminio/retail-footfall-pipeline/rfp_fl001;
-      mc mb --ignore-existing myminio/retail-footfall-pipeline/rfp_fl001/${FILE_PATH_RAW_DATA};
-      mc mb --ignore-existing myminio/retail-footfall-pipeline/rfp_fl001/${FILE_PATH_INTER_DATA};
-      mc mb --ignore-existing myminio/retail-footfall-pipeline/rfp_fl001/${FILE_PATH_PRO_DATA};
       exit 0;
       "
     networks:
@@ -70,7 +66,7 @@ services:
     image: retail-footfall-etl:latest
     profiles: ["build-only"]
     env_file:
-      - .env
+      - .env_docker
 
   # --- Airflow metadata database ---
   postgres:

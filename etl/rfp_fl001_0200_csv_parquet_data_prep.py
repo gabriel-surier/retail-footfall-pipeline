@@ -10,6 +10,11 @@
             data convention
             - modify pydantic implementation
             - switching to minio S3 to separate data ETL and visualization
+            2026-09-11 :
+            - download raw CSVs from MinIO before processing: this task now
+            runs in its own container (no filesystem shared with the
+            upstream extract task), so the source data is no longer
+            present locally by default
 """
 
 from pathlib import Path
@@ -18,12 +23,19 @@ from pathlib import Path
 import pandas as pd
 import duckdb
 
-from src.rfp_config import get_s3_client, upload_file, get_workspace, settings
+from src.rfp_config import (
+    get_s3_client,
+    upload_file,
+    download_files,
+    get_workspace,
+    settings,
+)
 
 # ===============================================
 # FILE VAR
 # ===============================================
 
+BUCK_FLOW_NAME: str = "rfp_fl001"
 
 INTERIM_FILE_NAME: str = "dwh_fact_visits"
 PROCESSED_FILE_NAME: str = "dm_fact_visits"
@@ -49,6 +61,18 @@ SQL_PRO_FILE_PATH: Path = sql_dir / f"{PROCESSED_FILE_NAME}.sql"
 # Get S3 client
 
 client = get_s3_client(settings)
+
+# Pull the raw CSVs produced by the upstream extract task before reading
+# them: this container starts with an empty raw_data_dir, so nothing is
+# present locally until it's fetched from MinIO.
+# NOTE: assumes `download_files(client, bucket, key, dest_dir)` exists
+# in src.rfp_config, symmetric to `upload_file`.
+download_files(
+    client,
+    settings.minio_bucket,
+    f"{BUCK_FLOW_NAME}/{settings.file_path_raw_data}",
+    raw_data_dir,
+)
 
 # Get all data in one dataframe
 
@@ -115,7 +139,6 @@ def generate_parquet(
 
 
 if __name__ == "__main__":
-    BUCK_FLOW_NAME: str = "rfp_fl001"
     generate_parquet(SQL_INT_FILE_PATH, INTERIM_FILE_NAME, interim_data_dir, None)
     generate_parquet(
         SQL_PRO_FILE_PATH,
