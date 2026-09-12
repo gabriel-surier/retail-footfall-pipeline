@@ -93,7 +93,6 @@ class Settings(BaseSettings):
     airflow_port: int
     airflow_user: str
     airflow_admin_user: str
-    airflow_admin_password: SecretStr
     airflow_admin_email: str
     airflow_jwt_secret: SecretStr
     postgres_user: str
