@@ -3,6 +3,8 @@
 @Time    :   2026/07/30
 @Author  :   Gabriel SURIER
 @Purpose :   Create API for simulate provider data app
+Update   :   2026/08/31 : add health endpoint for CD
+         :   add init file and Docker encapsulation
 """
 
 import logging
@@ -11,11 +13,26 @@ from datetime import date
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette import status
-from src import create_app
+from src.sensor import create_app
 
 door_dict: dict = create_app()
 
 app = FastAPI()
+
+
+@app.get("/door-health")
+def get_health():
+    """
+    get health endpoint for CD
+    :return: content response with health status
+    """
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "responseCode": status.HTTP_200_OK,
+            "responseMessage": "Endpoint related to provider door visits is online",
+        },
+    )
 
 
 @app.get("/door-visits")

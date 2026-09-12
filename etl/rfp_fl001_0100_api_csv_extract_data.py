@@ -1,34 +1,25 @@
 """
 @File    :   rfp_001_extract_data.py
-@Time    :   2020/8/31
+@Time    :   2026-08-31
 @Author  :   Gabriel SURIER
 @Purpose :   Create csv dataset for storing sensor data month by month
             here they are stocked in data/raw, but in a real environment,
             we will use S3 or maybe an ODS in a database.
+@Refacto :  2026-08-26 :
+            - renaming rfp_fl001_0100_api_csv_extract_data.py to respect the new
+            data convention
+            - add pydantic to have the same use case in every file
+            - switching to minio S3 to separate data ETL and visualization
 """
 
 from datetime import date, datetime, timedelta
 from pathlib import Path
-import os
-import calendar
 
+import calendar
 import requests
 import pandas as pd
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# ===============================================
-# ENVIRONMENT VAR
-# ===============================================
-FILE_PATH_RAW_DATA = os.getenv("FILE_PATH_RAW_DATA")
-
-API_BASE_URL = os.getenv("API_BASE_URL")
-
-DATA_LOAD_MOD = os.getenv("DATA_LOAD_MOD")
-DATA_LOAD_INIT_DATE: str = str(os.getenv("DATA_LOAD_INIT_DATE"))
-
-DEBUG = os.getenv("DEBUG")
+from src.rfp_config import get_s3_client, upload_file, get_workspace, settings
 
 # ===============================================
 # FILE VAR
@@ -43,18 +34,20 @@ ref_door: dict = {
         {"sensor_id": 4, "door_name": "west"},
     ]
 }
-df_door_id = pd.DataFrame(ref_door["sensors_referential"])
+df_door_id: pd.DataFrame = pd.DataFrame(ref_door["sensors_referential"])
 
 # Make a delta load mod for orchestration
-start_date: date = date(2026, 1, 1)  # default for initialize date type
-if DATA_LOAD_MOD == "INIT":
-    start_date = date.fromisoformat(DATA_LOAD_INIT_DATE)
+
+if settings.data_load_mod == "INIT":
+    start_date = settings.data_load_init_date
 else:
     start_date = date.today().replace(day=1)
+
+
 END_DATE: date = date.today()
 current_timestamp_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 raw_data_file_path = Path(__file__).resolve().parent
-
+client = get_s3_client(settings)
 # ===============================================
 # EXTRACT PIPELINE
 # ===============================================
@@ -92,9 +85,7 @@ def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
     :return: dataframe sensor_df
     """
     # declare variables
-    get_url = (
-        f"{API_BASE_URL}/door-visits?open_date={business_date}&door_name={door_name}"
-    )
+    get_url = f"{settings.api_base_url}/door-visits?open_date={business_date}&door_name={door_name}"
     date_id = extract_date_id(business_date)
     # api call
     response_dict = requests.get(get_url, timeout=300).json()
@@ -130,26 +121,35 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
     """
     output_df = pd.DataFrame()
     current_date = starting_date
-    while current_date <= end_date:
-        business_date = current_date.strftime("%Y-%m-%d")
-        if current_date.weekday() != 6:
-            for door_name in enumerate(ref_door["sensors_referential"]):
-                door_name = door_name[1]["door_name"]
-                sensor_df = extract_by_date(business_date, door_name)
-                output_df = pd.concat([output_df, sensor_df], ignore_index=True)
-            if is_last_day_of_month(current_date) or current_date == date.today():
-                month_id = str(extract_date_id(business_date))[:6]
-                with open(
-                    f"{raw_data_file_path}/{FILE_PATH_RAW_DATA}/store_data_{month_id}.csv",
-                    "w",
-                    encoding="UTF-8",
-                ) as file:
-                    output_df.to_csv(file, index=False)
-                    file.close()
+    etl_workspace: str = "etl"
+    with get_workspace(etl_workspace) as workspace:
+        raw_dir = workspace / settings.file_path_raw_data
+        raw_dir.mkdir(parents=True, exist_ok=True)
 
-                output_df = pd.DataFrame()
+        while current_date <= end_date:
+            business_date = current_date.strftime("%Y-%m-%d")
+            if current_date.weekday() != 6:
+                for door_name in enumerate(ref_door["sensors_referential"]):
+                    door_name = door_name[1]["door_name"]
+                    sensor_df = extract_by_date(business_date, door_name)
+                    output_df = pd.concat([output_df, sensor_df], ignore_index=True)
+                if is_last_day_of_month(current_date) or current_date == date.today():
+                    month_id = str(extract_date_id(business_date))[:6]
+                    file_path = raw_dir / f"store_data_{month_id}.csv"
 
-        current_date += timedelta(days=1)
+                    with open(file_path, "w", encoding="UTF-8") as file:
+                        output_df.to_csv(file, index=False)
+
+                    upload_file(
+                        client,
+                        file_path,
+                        settings.minio_bucket,
+                        f"rfp_fl001/{settings.file_path_raw_data}",
+                    )
+
+                    output_df = pd.DataFrame()
+
+            current_date += timedelta(days=1)
 
 
 if __name__ == "__main__":

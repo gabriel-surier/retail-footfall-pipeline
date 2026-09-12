@@ -1,6 +1,8 @@
-/etl/data/
+**/data/
 *.csv
 /venv/
-tests/gabriel*.py
+/sandbox/
 .idea/
 __pycache__
+*.env*
+orchestration/logs/

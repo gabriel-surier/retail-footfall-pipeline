@@ -6,7 +6,6 @@
              average evolution of daily visits (ex :we compare only
              the saturdays with saturdays.
              Work only in rfp_002_data_prep.py.
-             Replace ? with fact_visits.parquet for testing.
  ****************************************************************************************
  */
 WITH daily_analyze AS (

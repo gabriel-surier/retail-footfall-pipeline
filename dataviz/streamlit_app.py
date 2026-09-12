@@ -12,47 +12,30 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 import altair as alt
 import streamlit as st
 import duckdb
 import pandas as pd
 
-# ===============================================
-# ENVIRONMENT VAR
-# ===============================================
 
-
-class Settings(BaseSettings):
-    """
-    Import Settings from .env file with pydantic settings
-    """
-
-    model_config = SettingsConfigDict(env_file=".env")
-
-    file_path_pro_data: str = "data/03_processed"
-    debug: bool = False
-
-    # Unused
-    file_path_raw_data: str = ""
-    file_path_inter_data: str = ""
-    data_load_mod: str = ""
-    data_load_init_date: str = ""
-    api_base_url: str = ""
-
-
-settings = Settings()
+from src.rfp_config import get_s3_client, download_files, settings, get_workspace
 
 # ===============================================
 # File variables
 # ===============================================
 
-FILE_PATH_PRO_DATA: Path = (
-    Path(__file__).resolve().parent
-    / "etl"
-    / settings.file_path_pro_data
-    / "dm_fact_visits.parquet"
-)
+client = get_s3_client(settings)
+STREAMLIT_WORKSPACE: str = "dataviz/data"
+FILE_PATH_PRO_DATA: Path = settings.project_root / Path(STREAMLIT_WORKSPACE)
+FILE_PATH_PARQUET: Path = FILE_PATH_PRO_DATA / "dm_fact_visits.parquet"
+with get_workspace(STREAMLIT_WORKSPACE) as workspace:
+    download_files(
+        client,
+        bucket=settings.minio_bucket,
+        prefix=f"rfp_fl001/{settings.file_path_pro_data}/dm_fact_visits.parquet",
+        dest_dir=FILE_PATH_PRO_DATA,
+    )
+
 DEBUG: bool = settings.debug
 
 # ===============================================
@@ -81,7 +64,7 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
     :param parquet_file: file to load
     :return: return a pandas dataframe
     """
-    return _db_con.execute(f"""
+    query = _db_con.execute(f"""
         SELECT 
              DATE_ID 
             ,SENSOR_ID
@@ -107,13 +90,14 @@ def load_data(_db_con, parquet_file: str) -> pd.DataFrame:
         )
         ORDER BY DATE_ID DESC
     """).df()
+    return query
 
 
 # ===============================================
 # Main code
 # ===============================================
-
-dm_fact_visits_df = load_data(con, str(FILE_PATH_PRO_DATA))
+print(FILE_PATH_PARQUET)
+dm_fact_visits_df = load_data(con, str(FILE_PATH_PARQUET))
 door_sensor_list: tuple = tuple(sorted(dm_fact_visits_df["SENSOR_ID"].unique()))
 
 st.title("Store visits dashboard")
