@@ -9,19 +9,20 @@ Update   :   2026/08/31 : add health endpoint for CD
 
 import logging
 from datetime import date
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette import status
 from src.sensor import create_app
 
-door_dict: dict = create_app()
+door_dict: dict[Any,Any] = create_app()
 
 app = FastAPI()
 
 
 @app.get("/door-health")
-def get_health():
+def get_health() ->JSONResponse:
     """
     get health endpoint for CD
     :return: content response with health status
