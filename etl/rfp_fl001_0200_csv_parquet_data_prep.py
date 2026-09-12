@@ -41,8 +41,8 @@ INTERIM_FILE_NAME: str = "dwh_fact_visits"
 PROCESSED_FILE_NAME: str = "dm_fact_visits"
 
 sql_dir: Path = Path(__file__).resolve().parent / "sqlq"
-etl_workspace: str="etl"
-with get_workspace(etl_workspace) as workspace:
+ETL_WORKSPACE: str = "etl"
+with get_workspace(ETL_WORKSPACE) as workspace:
     raw_data_dir = workspace / settings.file_path_raw_data
     interim_data_dir = workspace / settings.file_path_inter_data
     processed_data_dir = workspace / settings.file_path_pro_data

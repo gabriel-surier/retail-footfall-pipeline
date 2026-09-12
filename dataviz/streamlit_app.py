@@ -11,7 +11,6 @@
 # ===============================================
 from pathlib import Path
 from typing import Literal
-import tempfile
 
 import altair as alt
 import streamlit as st
@@ -19,14 +18,14 @@ import duckdb
 import pandas as pd
 
 
-from src.rfp_config import get_s3_client, download_files, settings,get_workspace
+from src.rfp_config import get_s3_client, download_files, settings, get_workspace
 
 # ===============================================
 # File variables
 # ===============================================
 
 client = get_s3_client(settings)
-STREAMLIT_WORKSPACE:str="dataviz/data"
+STREAMLIT_WORKSPACE: str = "dataviz/data"
 FILE_PATH_PRO_DATA: Path = settings.project_root / Path(STREAMLIT_WORKSPACE)
 FILE_PATH_PARQUET: Path = FILE_PATH_PRO_DATA / "dm_fact_visits.parquet"
 with get_workspace(STREAMLIT_WORKSPACE) as workspace:

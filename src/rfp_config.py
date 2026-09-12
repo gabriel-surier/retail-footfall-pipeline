@@ -98,8 +98,6 @@ class Settings(BaseSettings):
     postgres_user: str
     postgres_password: SecretStr
     postgres_db: str
-    # --- Docker config ---
-    docker_gid: int = Field(default=9999)
 
 
 settings: Settings = Settings()  # noqa
@@ -111,7 +109,7 @@ logging.basicConfig(
 
 
 @contextmanager
-def get_workspace(workspace_name:str) -> Iterator[Path]:
+def get_workspace(workspace_name: str) -> Iterator[Path]:
     """Provide a working directory shared across the tasks of a run.
 
     Uses a persistent directory under the project root, shared across
@@ -126,18 +124,18 @@ def get_workspace(workspace_name:str) -> Iterator[Path]:
     workspace = settings.project_root / workspace_name
     logger.info("Persistent workspace at %s", workspace)
 
-    if workspace_name=="etl":
+    if workspace_name == "etl":
         for sub_dir in (
-
             settings.file_path_raw_data,
             settings.file_path_inter_data,
             settings.file_path_pro_data,
         ):
 
             (workspace / sub_dir).mkdir(parents=True, exist_ok=True)
-        else:
-            (workspace / settings.file_path_pro_data).mkdir(parents=True, exist_ok=True)
-            print(workspace / settings.file_path_pro_data)
+    else:
+        (workspace / settings.file_path_pro_data).mkdir(parents=True, exist_ok=True)
+        print(workspace / settings.file_path_pro_data)
+
     yield workspace
 
 
