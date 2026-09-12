@@ -16,13 +16,13 @@ from fastapi.responses import JSONResponse
 from starlette import status
 from src.sensor import create_app
 
-door_dict: dict[Any,Any] = create_app()
+door_dict: dict[Any, Any] = create_app()
 
 app = FastAPI()
 
 
 @app.get("/door-health")
-def get_health() ->JSONResponse:
+def get_health() -> JSONResponse:
     """
     get health endpoint for CD
     :return: content response with health status

@@ -26,7 +26,7 @@ from src.rfp_config import get_s3_client, upload_file, get_workspace, settings
 # ===============================================
 
 
-ref_door: dict[str, list[dict[str,int|str]]] = {
+ref_door: dict[str, list[dict[str, int | str]]] = {
     "sensors_referential": [
         {"sensor_id": 1, "door_name": "north"},
         {"sensor_id": 2, "door_name": "south"},
@@ -119,7 +119,7 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
     :param end_date:
     :return: None
     """
-    output_df:pd.DataFrame  = pd.DataFrame()
+    output_df: pd.DataFrame = pd.DataFrame()
     current_date = starting_date
     etl_workspace: str = "etl"
     with get_workspace(etl_workspace) as workspace:
@@ -130,9 +130,9 @@ def create_csv_by_month(starting_date: date, end_date: date) -> None:
             business_date = current_date.strftime("%Y-%m-%d")
             if current_date.weekday() != 6:
                 for door_dict in enumerate(ref_door["sensors_referential"]):
-                    door_name:str = str(door_dict[1]["door_name"])
+                    door_name: str = str(door_dict[1]["door_name"])
                     sensor_df: pd.DataFrame = extract_by_date(business_date, door_name)
-                    output_df= pd.concat([output_df, sensor_df], ignore_index=True)
+                    output_df = pd.concat([output_df, sensor_df], ignore_index=True)
                 if is_last_day_of_month(current_date) or current_date == date.today():
                     month_id = str(extract_date_id(business_date))[:6]
                     file_path = raw_dir / f"store_data_{month_id}.csv"

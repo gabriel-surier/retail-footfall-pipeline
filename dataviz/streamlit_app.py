@@ -10,7 +10,7 @@
 # Global Package
 # ===============================================
 from pathlib import Path
-from typing import Literal,Any
+from typing import Literal, Any
 
 import altair as alt
 import streamlit as st
@@ -44,7 +44,7 @@ DEBUG: bool = settings.debug
 
 
 @st.cache_resource
-def get_connection() ->duckdb.DuckDBPyConnection:
+def get_connection() -> duckdb.DuckDBPyConnection:
     """
     Connect to DuckDB
     Function necessary for streamlit cache resource
@@ -57,7 +57,7 @@ con = get_connection()
 
 
 @st.cache_data
-def load_data(_db_con:duckdb.DuckDBPyConnection, parquet_file: str) -> pd.DataFrame:
+def load_data(_db_con: duckdb.DuckDBPyConnection, parquet_file: str) -> pd.DataFrame:
     """
     Retrieve the data from parquet file and put it in the streamlit cache
     :param _db_con: static argument for streamlit
@@ -228,7 +228,9 @@ if option is not None:
     output_door_df = build_table(df_all, door_cols)
     output_store_df = build_table(store_df, store_cols)
 
-    def build_chart(df: pd.DataFrame, metric_col: str, short_title: str) -> alt.Chart | Any:
+    def build_chart(
+        df: pd.DataFrame, metric_col: str, short_title: str
+    ) -> alt.Chart | Any:
         """
         Build a bar chart for the given metric, grouped and filtered to
         the currently selected view's period
