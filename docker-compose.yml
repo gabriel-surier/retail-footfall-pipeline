@@ -110,8 +110,10 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USER}:admin"
       AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW_JWT_SECRET}"
-    entrypoint: /bin/bash
-    command: -c "airflow db migrate"
+    # No entrypoint override: bypassing the base image's
+    # native entrypoint skips its HOME/env setup for
+    # arbitrary UIDs, breaking "airflow" imports.
+    command: ["bash", "-c", "airflow db migrate"]
     env_file:
       - .env_docker
     networks:
@@ -130,8 +132,8 @@ services:
   # host-side permission conflicts on that folder. Do not remove the :ro.
   #
   # logs stays local at ./orchestration/logs, already excluded via
-  # .gitignore, so git never touches it. The container writes here as
-  # user 50000, run once: sudo chown -R 50000:0 ./orchestration/logs
+  # .gitignore, so git never touches it. Image runs as uid 50000
+  # (airflow), so ownership is fixed once by `make setup`.
   api-server:
     build:
       context: .
@@ -171,8 +173,8 @@ services:
   # itself.
   #
   # See api-server above for why dags is :ro and logs stays local. This is
-  # the container that actually writes task logs, so ./orchestration/logs
-  # must be writable by user 50000 on the host (see chown above).
+  # the container that actually writes task logs, so ownership follows the
+  # same fixed uid 50000 mapping as api-server, set once by `make setup`.
   airflow-scheduler:
     hostname: airflow-scheduler
     build:
