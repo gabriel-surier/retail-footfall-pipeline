@@ -29,6 +29,9 @@ ignore_missing_imports = true
 ignore = ["venv", "sandbox"]
 ignore-patterns = ["^\\.venv$"]
 
+[tool.pylint.typecheck]
+ignored-modules = ["airflow.providers"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
