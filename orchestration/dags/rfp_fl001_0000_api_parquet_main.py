@@ -13,7 +13,7 @@ from airflow.providers.docker.operators.docker import DockerOperator
 import pendulum
 
 ETL_IMAGE = "retail-footfall-etl:latest"
-ETL_NETWORK = "rfp-net"
+ETL_NETWORK = "airflow-net"
 
 default_args = {
     "owner": "gabriel",

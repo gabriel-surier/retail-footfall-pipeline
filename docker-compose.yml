@@ -262,5 +262,5 @@ networks:
   # the DAG stays stable regardless of the folder name the repo is
   # cloned into on the VPS.
   default:
-    name: rfp-net
+    name: airflow-net
     driver: bridge
