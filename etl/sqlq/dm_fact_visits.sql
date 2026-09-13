@@ -32,7 +32,7 @@ WITH daily_analyze AS (
             ) AS AVG_DAILY_VISITS_NUM
             ,COALESCE(ROUND(
                 (DAILY_VISITS_NUM-AVG_DAILY_VISITS_NUM)/COALESCE(AVG_DAILY_VISITS_NUM,1) *100,2
-            ) ,0) AS PCT_CHANGE
+            ) ,0) AS PCT_CHANGE_NUM
          FROM daily_analyze   order by OPEN_DT DESC
 )
    , tot_daily_visits AS (
@@ -41,7 +41,7 @@ WITH daily_analyze AS (
             ,SUM(DAILY_VISITS_NUM) AS TOT_DAILY_VISITS_NUM
             ,SUM(AVG_DAILY_VISITS_NUM) AS TOT_AVG_DAILY_VISITS_NUM
             ,COALESCE(ROUND(  ((TOT_DAILY_VISITS_NUM-TOT_AVG_DAILY_VISITS_NUM)
-                                   /COALESCE(TOT_AVG_DAILY_VISITS_NUM,1) *100),2),0) AS TOT_PCT_CHANGE
+                                   /COALESCE(TOT_AVG_DAILY_VISITS_NUM,1) *100),2),0) AS TOT_PCT_CHANGE_NUM
         FROM avg_daily_visits
         GROUP BY DATE_ID
 )
@@ -52,10 +52,10 @@ WITH daily_analyze AS (
             ,avg.OPEN_DT
             ,avg.DAILY_VISITS_NUM
             ,COALESCE(ROUND(avg.AVG_DAILY_VISITS_NUM),0) AS AVG_DAILY_VISITS_NUM
-            ,avg.PCT_CHANGE
+            ,avg.PCT_CHANGE_NUM
             ,tot.TOT_DAILY_VISITS_NUM
             ,COALESCE(ROUND(tot.TOT_AVG_DAILY_VISITS_NUM),0) AS TOT_AVG_DAILY_VISITS_NUM
-            ,tot.TOT_PCT_CHANGE
+            ,tot.TOT_PCT_CHANGE_NUM
      FROM
          avg_daily_visits avg
          LEFT JOIN tot_daily_visits tot on avg.DATE_ID=tot.DATE_ID
