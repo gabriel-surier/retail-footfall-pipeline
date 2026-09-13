@@ -17,6 +17,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
+
 from src.rfp_config import download_files, get_s3_client, get_workspace, settings
 
 # ===============================================
@@ -121,7 +122,7 @@ def load_data(
     return query
 
 
-def add_weekday(df: pd.DataFrame, date_col: str) -> pd.Series:
+def add_weekday(df: pd.DataFrame, date_col: str) -> pd.Series | Any:
     """Derive a weekday name series from a datetime column.
 
     Args:
@@ -171,7 +172,7 @@ def build_chart(df: pd.DataFrame, metric_col: str, title: str) -> alt.Chart:
     # Weekday is added only for the tooltip, it never appears on an axis.
     chart_df["Weekday"] = add_weekday(chart_df, "Open date")
 
-    return (
+    chart: alt.Chart = (
         alt.Chart(chart_df)
         .mark_bar()
         .encode(
@@ -181,6 +182,7 @@ def build_chart(df: pd.DataFrame, metric_col: str, title: str) -> alt.Chart:
         )
         .properties(title=title, height=250)
     )
+    return chart
 
 
 def build_column_order(show_open_date_col: bool, pct_label: str) -> list[str]:
