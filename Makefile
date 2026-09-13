@@ -84,9 +84,11 @@ logs:
 ps:
 	docker compose ps
 
-# --- Danger: also wipe volumes (minio, postgres data) ---
-clean:
-	docker compose down -v
+# --- Rebuild to reload images and parameters ---
+.PHONY: rebuild
+
+rebuild:
+	docker compose up --build -d
 
 # --- Print the auto-generated Airflow admin password.
 # Username comes from the container's own env var, not .env,
