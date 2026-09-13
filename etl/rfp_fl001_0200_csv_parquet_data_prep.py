@@ -15,6 +15,7 @@
             runs in its own container (no filesystem shared with the
             upstream extract task), so the source data is no longer
             present locally by default
+Runs standalone: downloads raw data, builds interim then processed parquet files.
 """
 
 from pathlib import Path
@@ -100,10 +101,11 @@ def generate_parquet(
 ) -> None:
     """
     Generate a parquet file  with a specific name in a selected file path
-    :param file_name: output file name
-    :param dir_path: output directory path
-    :param sql_file_path: input SQL file path
-    :param parquet_file_path: input parquet file path to read SQL data
+    Merges with any existing parquet output and deduplicates on the subset key.
+    :param file_name: output file name, used as the parquet file stem
+    :param dir_path: output directory path where the parquet file is written
+    :param sql_file_path: input SQL file path defining the transformation query
+    :param parquet_file_path: input parquet file path substituted into the SQL query
     :return: None
     """
     with open(sql_file_path, encoding="UTF-8") as file:

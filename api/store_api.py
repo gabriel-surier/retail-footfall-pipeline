@@ -5,6 +5,7 @@
 @Purpose :   Create API for simulate provider data app
 Update   :   2026/08/31 : add health endpoint for CD
          :   add init file and Docker encapsulation
+Exposed endpoints: /door-health (liveness) and /door-visits (hourly data).
 """
 
 import logging
@@ -25,6 +26,7 @@ app = FastAPI()
 def get_health() -> JSONResponse:
     """
     get health endpoint for CD
+    Called by the CD pipeline to check service availability.
     :return: content response with health status
     """
     return JSONResponse(
@@ -40,8 +42,9 @@ def get_health() -> JSONResponse:
 def get_visits(open_date: str, door_name: str) -> JSONResponse:
     """
     get visits by date and door name
-    :param open_date: yyyy-mm-dd format
-    :param door_name: [north, south, east, west]
+    Returns 400 if the door is unknown, the date is invalid, or the date falls on a Sunday.
+    :param open_date: business date to query, expected as yyyy-mm-dd
+    :param door_name: sensor door identifier, one of north, south, east, west
     :return: JSON response with visits data or error message
     """
     try:

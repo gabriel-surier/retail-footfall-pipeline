@@ -10,6 +10,7 @@
             data convention
             - add pydantic to have the same use case in every file
             - switching to minio S3 to separate data ETL and visualization
+Pipeline runs delta or full INIT load depending on settings.data_load_mod.
 """
 
 from datetime import date, datetime, timedelta
@@ -56,7 +57,8 @@ client = get_s3_client(settings)
 def is_last_day_of_month(current_date: date) -> bool:
     """
     From a given date, determine if it is the last day of the month
-    :param current_date:
+    Used to trigger the monthly CSV flush during the extraction loop.
+    :param current_date: date being evaluated against its month's last day
     :return:
     """
     last_day_of_month = calendar.monthrange(current_date.year, current_date.month)[1]
@@ -66,8 +68,9 @@ def is_last_day_of_month(current_date: date) -> bool:
 def extract_date_id(business_date: str) -> int:
     """
     Retrieve the date id for a given business date
-    :param business_date:
-    :return: date id
+    Converts an ISO date string into a numeric YYYYMMDD identifier.
+    :param business_date: business date string, expected as yyyy-mm-dd
+    :return: date id yyyyMMdd
     """
     date_id = int(
         business_date.split("-")[0]
@@ -80,8 +83,9 @@ def extract_date_id(business_date: str) -> int:
 def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
     """
     Retrieve the data frame from the given business date and door name
-    :param business_date:
-    :param door_name:
+    Calls the /door-visits API and enriches the raw payload with sensor id and metadata.
+    :param business_date: target date to query, expected as yyyy-mm-dd
+    :param door_name: sensor door identifier, one of north, south, east, west
     :return: dataframe sensor_df
     """
     # declare variables
@@ -115,8 +119,9 @@ def extract_by_date(business_date: str, door_name: str) -> pd.DataFrame:
 def create_csv_by_month(starting_date: date, end_date: date) -> None:
     """
     Create csv file month by month from start date to end date
-    :param starting_date:
-    :param end_date:
+    Sundays are skipped, and each monthly file is uploaded to MinIO once complete.
+    :param starting_date: first date of the extraction range, inclusive
+    :param end_date: last date of the extraction range, inclusive
     :return: None
     """
     output_df: pd.DataFrame = pd.DataFrame()

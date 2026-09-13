@@ -3,6 +3,7 @@
 @Time    :   2026/07/28
 @Author  :   Gabriel SURIER
 @Purpose :   Declare AttendanceSensor to simulate datas
+Seed is derived from the date, so results stay reproducible for a given day.
 """
 
 from datetime import date
@@ -18,6 +19,7 @@ class AttendanceSensor:
     AttendanceSensor :
     Creates an attendance sensor for counting door passages to simulate
     a number of visits per hour. The number of visits per hour is fix day by day
+    Closed on Sundays; dysfunction and breakdown are simulated per hour.
     """
 
     def __init__(
@@ -39,6 +41,10 @@ class AttendanceSensor:
         """
         hour_visits :
         Define a list for the number of passage per hour
+        Applies hourly weighting to mimic real traffic patterns across the day.
+        :param open_date: business date to simulate, expected as yyyy-mm-dd
+        :return: [{"hour": 8, "visits_nb": x},{"hour": 9, "visits_nb": y}...]
+                 or [{"hour": -1, "visits_nb": -1}] when it's a Sunday
         """
 
         open_date_iso: date = date.fromisoformat(open_date)
@@ -85,6 +91,10 @@ class AttendanceSensor:
         """
         Return the number of visits per hour with
         simulated null or count errors
+        Dysfunction halves a random hour's count; breakdown nulls it entirely.
+        :param open_date: business date to query, expected as yyyy-mm-dd
+        :return: [{"hour": 8, "visits_nb": x},{"hour": 9, "visits_nb": y}...]
+                 x or y can be null
         """
         np.random.seed(seed=date.fromisoformat(open_date).toordinal())
         rng_dysfunction = np.random.random()
