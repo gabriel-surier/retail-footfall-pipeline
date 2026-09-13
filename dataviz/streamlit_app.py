@@ -27,7 +27,7 @@ from src.rfp_config import download_files, get_s3_client, get_workspace, setting
 # S3/MinIO client used once at import time to pull the latest parquet.
 client = get_s3_client(settings)
 
-STREAMLIT_WORKSPACE: str = "dataviz/data"
+STREAMLIT_WORKSPACE: str = "dataviz"
 FILE_PATH_PRO_DATA: Path = settings.project_root / Path(STREAMLIT_WORKSPACE)
 FILE_PATH_PARQUET: Path = (
     FILE_PATH_PRO_DATA / settings.file_path_pro_data / "dm_fact_visits.parquet"
