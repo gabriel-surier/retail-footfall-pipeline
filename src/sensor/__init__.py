@@ -6,12 +6,13 @@
 @Update   :  2020/09/01 : refactor for config
 """
 
+from typing import Any
 from .sensor import AttendanceSensor
 
 __all__ = ["AttendanceSensor", "create_app"]
 
 
-def create_app() -> dict:
+def create_app() -> dict[str, int | float]:
     """
     Create the data for all doors sensor in the store
     4 doors for this store so 4 sensors
@@ -22,7 +23,7 @@ def create_app() -> dict:
     pct_dysfunction = [0.05, 0.08, 0.1, 0.075]
     pct_breakdown = [0.01, 0.03, 0.05, 0.02]
 
-    door_dict: dict = {}
+    door_dict: dict[Any, Any] = {}
 
     for i in enumerate(door_name):
         index = i[0]

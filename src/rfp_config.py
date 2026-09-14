@@ -7,6 +7,7 @@
             context manager used by all ETL scripts to read/write intermediate
             files, either persisted locally in debug mode or ephemeral in prod.
 Update  :   2026-09-01 : rename to rfp_config.py and add etl config for central configuration.
+Central module imported by every ETL script (extract, prep, upload/download).
 """
 
 from typing import Any, Iterator
@@ -26,6 +27,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables or .env file.
+
+    Values are validated by pydantic at import time; missing required
+    fields raise at startup rather than failing later mid-pipeline.
 
     Attributes:
         project_root: Absolute path to the project root directory.
@@ -118,6 +122,10 @@ def get_workspace(workspace_name: str) -> Iterator[Path]:
     required subdirectory if it does not already exist; leaves it
     untouched otherwise.
 
+    Args:
+        workspace_name: Name of the workspace, e.g. "etl"; drives which
+            sub-directories are created.
+
     Yields:
         Path to the shared working directory for this run.
     """
@@ -141,6 +149,7 @@ def get_workspace(workspace_name: str) -> Iterator[Path]:
 
 def get_s3_client(s3_settings: Any) -> Any:
     """Create and return a boto3 S3 client configured for MinIO.
+    Used by every ETL script needing to read from or write to MinIO buckets.
     Args:
         s3_settings: Object exposing minio_endpoint, minio_root_user and
             minio_root_password attributes.
@@ -165,7 +174,7 @@ def get_s3_client(s3_settings: Any) -> Any:
 
 def upload_file(client: Any, local_path: Path, bucket: str, prefix: str) -> str:
     """Upload a local file to an S3 bucket under the given prefix.
-
+    Called at the end of extract and prep steps to persist pipeline outputs.
     Args:
         client: A boto3 S3 client.
         local_path: Path to the local file to upload.
@@ -183,7 +192,7 @@ def upload_file(client: Any, local_path: Path, bucket: str, prefix: str) -> str:
 
 def download_files(client: Any, bucket: str, prefix: str, dest_dir: Path) -> None:
     """Download every object under a prefix into a local directory.
-
+    Used by prep tasks running in a separate container from the extract step.
     Args:
         client: A boto3 S3 client.
         bucket: Source S3 bucket name.
@@ -208,7 +217,7 @@ def download_files(client: Any, bucket: str, prefix: str, dest_dir: Path) -> Non
 
 def list_csv_files_s3(client: Any, bucket: str, prefix: str) -> list[str]:
     """List non-empty CSV file keys in an S3 bucket under a given prefix.
-
+    Zero-byte objects are excluded to avoid feeding empty files downstream.
     Args:
         client: A boto3 S3 client.
         bucket: S3 bucket name to search.

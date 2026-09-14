@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY .env_docker ./.env
 COPY pyproject.toml ./pyproject.toml
 COPY dataviz/streamlit_app.py ./streamlit_app.py
+COPY dataviz/sqlq ./sqlq
 COPY src/__init__.py ./src/__init__.py
 COPY src/rfp_config.py ./src/rfp_config.py
 

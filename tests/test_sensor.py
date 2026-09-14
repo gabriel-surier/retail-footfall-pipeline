@@ -19,7 +19,7 @@ class TestAttendanceSensor(unittest.TestCase):
     Those tests check the behaviours of the 2 methods.
     """
 
-    def test_weekdays_open(self):
+    def test_weekdays_open(self) -> None:
         """
         Unit test for open weekdays
         :return: OK or Failed subtests list: (i=26) if it's Sunday
@@ -31,18 +31,18 @@ class TestAttendanceSensor(unittest.TestCase):
                     date(2026, 7, test_day).strftime("%Y-%m-%d")
                 )
                 print(visit_count)
-                self.assertFalse(visit_count[0] == -1)
+                self.assertFalse(visit_count[0]["hour"] == -1)
 
-    def test_sunday_closed(self):
+    def test_sunday_closed(self) -> None:
         """
         Unit test for checking if a sunday return no datas
         :return: OK or AssertionError: {'hour': n, 'visits_nb': n } != -1 if it's not a Sunday
         """
         visit_sensor = AttendanceSensor(avg_door_passes=100, std_door_passes=25)
         visit_count = visit_sensor.simulate_hour_visits("2026-07-26")
-        self.assertEqual(visit_count[0], -1)
+        self.assertEqual(visit_count[0]["hour"], -1)
 
-    def test_with_breakdown(self):
+    def test_with_breakdown(self) -> None:
         """
         Unit test for checking if a breakdown return no datas
         :return: OK AssertionError: None != 'yourValue' or AssertionError: 'valueOfDate' != None
@@ -54,7 +54,7 @@ class TestAttendanceSensor(unittest.TestCase):
         visit_count = visit_sensor.get_hour_visits("2026-03-20")
         self.assertEqual(visit_count[index_hour]["visits_nb"], None)
 
-    def test_with_dysfunction(self):
+    def test_with_dysfunction(self) -> None:
         """
         Unit test for checking if a breakdown return no datas
         :return: OK or AssertionError: 'valueOfDate' != 'yourValue'
