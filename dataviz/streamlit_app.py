@@ -44,8 +44,8 @@ OUTPUT_ALIASES: dict[str, str] = {
     "AVG_DAILY_VISITS_NUM": "Average visits",
     "TOT_DAILY_VISITS_NUM": "Visits",
     "TOT_AVG_DAILY_VISITS_NUM": "Average visits",
-    "PCT_CHANGE": "Door % change",
-    "TOT_PCT_CHANGE": "Store % change",
+    "PCT_CHANGE_NUM": "Door % change",
+    "TOT_PCT_CHANGE_NUM": "Store % change",
 }
 
 # Column widths/formats for both the door and store tables.
