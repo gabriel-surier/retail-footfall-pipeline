@@ -1,6 +1,10 @@
 services:
   # --- Object storage backend for the pipeline ---
+  # profiles: ["local"] makes this service opt-in. In prod, MinIO is
+  # managed by a separate external stack to simulate a real production
+  # setup; this repo's compose file never starts or owns it there.
   minio:
+    profiles: ["local"]
     image: cgr.dev/chainguard/minio:latest
     ports:
       - "9105:9000"  # S3 API
@@ -13,18 +17,22 @@ services:
     command: server /data --console-address ":9001"
 
   # --- One-shot init job: provisions buckets, then exits ---
+  # required: false means this only waits on minio when minio is part
+  # of the active project (local, with --profile local). In prod, minio
+  # is external, so the dependency is skipped and the entrypoint's own
+  # retry loop takes over waiting for the endpoint to respond.
   create-buckets:
     image: cgr.dev/chainguard/minio-client:latest-dev
     depends_on:
       minio:
         condition: service_started
+        required: false
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
-      mc alias set myminio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+      until mc alias set myminio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 2; done;
       mc mb --ignore-existing myminio/retail-footfall-pipeline;
       exit 0;
       "
@@ -101,6 +109,7 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+        required: false
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
@@ -241,6 +250,7 @@ services:
     depends_on:
       minio:
         condition: service_started
+        required: false
     ports:
       - "8501:8501"
     env_file:
@@ -253,10 +263,6 @@ volumes:
   postgres_data:
 
 networks:
-  # Named explicitly (rather than left to Compose's default
-  # "<project>_default" naming) so the DockerOperator's network_mode in
-  # the DAG stays stable regardless of the folder name the repo is
-  # cloned into on the VPS.
   default:
     name: airflow-net
-    driver: bridge
+    external: true
