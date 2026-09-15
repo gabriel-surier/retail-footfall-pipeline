@@ -26,10 +26,10 @@ with DAG(
     dag_id="rfp_fl001_0000_api_parquet_main",
     default_args=default_args,
     description="retail footfall pipeline workflow # 01",
-    start_date=pendulum.datetime(2026, 9, 2),
+    start_date=pendulum.datetime(2026, 9, 2, tz="Europe/Paris"),
     schedule="0 8 * * *",
     catchup=False,
-    tags=["rfp"],
+    tags={"rfp","demo"},
 ) as dag:
     first_task = DockerOperator(
         task_id="rfp_fl001_0100_api_csv_extract_data",
