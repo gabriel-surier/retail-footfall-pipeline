@@ -29,7 +29,7 @@ with DAG(
     start_date=pendulum.datetime(2026, 9, 2, tz="Europe/Paris"),
     schedule="0 8 * * *",
     catchup=False,
-    tags={"rfp","demo"},
+    tags={"rfp", "demo"},
 ) as dag:
     first_task = DockerOperator(
         task_id="rfp_fl001_0100_api_csv_extract_data",
