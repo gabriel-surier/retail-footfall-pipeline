@@ -120,7 +120,7 @@ def generate_parquet(
     if file_name[:2] == "dm":
         pandas_subset = ["DATE_ID", "SENSOR_ID"]
     else:
-        pandas_subset = ["DATE_ID", "SENSOR_ID", "HOUR_NUM"]
+        pandas_subset = ["DATE_ID", "SENSOR_ID", "HOUR_ID"]
 
     if data_file_path.exists():
         f_df = pd.read_parquet(data_file_path)

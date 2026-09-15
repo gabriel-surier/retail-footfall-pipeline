@@ -5,7 +5,7 @@
  Purpose :   SQL QUERY to create the window function to analyse the
              average evolution of daily visits (ex :we compare only
              the saturdays with saturdays.
-             Work only in rfp_002_data_prep.py.
+             Work only in rfp_fl001_0200_csv_parquet_data_prep.py
  ****************************************************************************************
  */
 WITH daily_analyze AS (
@@ -25,38 +25,60 @@ WITH daily_analyze AS (
             ,DAY_OF_WEEK
             ,OPEN_DT
             ,DAILY_VISITS_NUM
-            , AVG(DAILY_VISITS_NUM) OVER (
-            PARTITION BY DAY_OF_WEEK,SENSOR_ID
-            ORDER BY OPEN_DT
-            ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING
+            -- ROWS framing assumes fixed sensors with continuous daily data.
+            -- A sensor with data gaps would silently skew the rolling window.
+            ,AVG(DAILY_VISITS_NUM) OVER (
+                PARTITION BY DAY_OF_WEEK,SENSOR_ID
+                ORDER BY OPEN_DT
+                ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING
             ) AS AVG_DAILY_VISITS_NUM
-            ,COALESCE(ROUND(
-                (DAILY_VISITS_NUM-AVG_DAILY_VISITS_NUM)/COALESCE(AVG_DAILY_VISITS_NUM,1) *100,2
-            ) ,0) AS PCT_CHANGE_NUM
-         FROM daily_analyze   order by OPEN_DT DESC
+            -- NULL baseline or a real 0 baseline both return NULL,
+            -- never a fake "no change" result.
+            ,CASE WHEN AVG(DAILY_VISITS_NUM) OVER (
+                    PARTITION BY DAY_OF_WEEK,SENSOR_ID
+                    ORDER BY OPEN_DT
+                    ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING
+                 ) > 0
+                THEN ROUND((DAILY_VISITS_NUM-AVG_DAILY_VISITS_NUM)/AVG_DAILY_VISITS_NUM*100,2)
+                ELSE NULL
+             END AS PCT_CHANGE_NUM
+         FROM daily_analyze
 )
    , tot_daily_visits AS (
         SELECT
              DATE_ID
             ,SUM(DAILY_VISITS_NUM) AS TOT_DAILY_VISITS_NUM
+            -- Sum of per sensor averages, valid only while sensors
+            -- stay fixed and share the same date history.
             ,SUM(AVG_DAILY_VISITS_NUM) AS TOT_AVG_DAILY_VISITS_NUM
-            ,COALESCE(ROUND(  ((TOT_DAILY_VISITS_NUM-TOT_AVG_DAILY_VISITS_NUM)
-                                   /COALESCE(TOT_AVG_DAILY_VISITS_NUM,1) *100),2),0) AS TOT_PCT_CHANGE_NUM
         FROM avg_daily_visits
         GROUP BY DATE_ID
 )
+   , tot_pct_visits AS (
+        SELECT
+             DATE_ID
+            ,TOT_DAILY_VISITS_NUM
+            ,TOT_AVG_DAILY_VISITS_NUM
+            -- NULL baseline or a real 0 baseline both return NULL,
+            -- never a fake "no change" result.
+            ,CASE WHEN TOT_AVG_DAILY_VISITS_NUM > 0
+                THEN ROUND((TOT_DAILY_VISITS_NUM-TOT_AVG_DAILY_VISITS_NUM)/TOT_AVG_DAILY_VISITS_NUM*100,2)
+                ELSE NULL
+             END AS TOT_PCT_CHANGE_NUM
+        FROM tot_daily_visits
+)
      SELECT
-             avg.DATE_ID
-            ,avg.SENSOR_ID
-            ,avg.DAY_OF_WEEK
-            ,avg.OPEN_DT
-            ,avg.DAILY_VISITS_NUM
-            ,COALESCE(ROUND(avg.AVG_DAILY_VISITS_NUM),0) AS AVG_DAILY_VISITS_NUM
-            ,avg.PCT_CHANGE_NUM
+             adv.DATE_ID
+            ,adv.SENSOR_ID
+            ,adv.DAY_OF_WEEK
+            ,adv.OPEN_DT
+            ,adv.DAILY_VISITS_NUM
+            ,COALESCE(ROUND(adv.AVG_DAILY_VISITS_NUM),0) AS AVG_DAILY_VISITS_NUM
+            ,adv.PCT_CHANGE_NUM
             ,tot.TOT_DAILY_VISITS_NUM
             ,COALESCE(ROUND(tot.TOT_AVG_DAILY_VISITS_NUM),0) AS TOT_AVG_DAILY_VISITS_NUM
             ,tot.TOT_PCT_CHANGE_NUM
      FROM
-         avg_daily_visits avg
-         LEFT JOIN tot_daily_visits tot on avg.DATE_ID=tot.DATE_ID
-         ORDER BY avg.OPEN_DT, avg.SENSOR_ID
+         avg_daily_visits adv
+         LEFT JOIN tot_pct_visits tot ON adv.DATE_ID=tot.DATE_ID
+         ORDER BY adv.OPEN_DT, adv.SENSOR_ID
