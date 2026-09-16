@@ -24,10 +24,6 @@ Docker, GitHub Actions
 
 ```
 .
-├── .github/
-│   └── workflows/
-│       ├── cd.yml
-│       └── ci.yaml
 ├── api/
 │   ├── __init__.py
 │   ├── Dockerfile
@@ -40,6 +36,8 @@ Docker, GitHub Actions
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── streamlit_app.py
+├── docs/
+│   └── rfp_architecture.png
 ├── etl/
 │   ├── data/
 │   ├── sqlq/
@@ -62,10 +60,11 @@ Docker, GitHub Actions
 │   └── rfp_config.py
 ├── tests/
 │   └── test_sensor.py
-├── .env
-├── .env_docker
+├── .example_env
+├── .example_env_docker
 ├── .gitignore
 ├── docker-compose.yml
+├── LICENSE
 ├── Makefile
 ├── pyproject.toml
 ├── README.md
@@ -74,25 +73,70 @@ Docker, GitHub Actions
 
 
 
+
 ## Local install
 
-Prerequisites : Docker, Docker Compose, and `make`.
+Prerequisites : Docker, Docker Compose, and `make`. If you already
+have these installed, skip straight to [Setup](#setup).
 
-1. Copy `.env` and `.env_docker` from their example files (or create
-   them) at the project root, filling in the required variables :
-   `make setup` fails fast if either file is missing.
-2. Run `make setup`. This runs the full local bootstrap in one go :
-   validates the env files, creates the local log/dags directories
-   with correct permissions, creates the `airflow-net` Docker
-   network, migrates the Airflow metadata DB, builds the ETL image,
-   then starts the full stack locally, including MinIO via the
-   `local` profile.
-3. Run `make password` to retrieve the auto-generated Airflow admin
-   password (retries a few times if `api-server` isn't ready yet).
-4. Access the stack :
-   - Airflow UI : `http://localhost:${AIRFLOW_PORT}`
-   - Streamlit dashboard : `http://localhost:8501`
-   - MinIO console : `http://localhost:9106`
+```bash
+git clone https://github.com/gabriel-surier/retail-footfall-pipeline.git
+# or via SSH
+git clone git@github.com:gabriel-surier/retail-footfall-pipeline.git
+cd retail-footfall-pipeline
+```
+
+### Install Docker, Docker Compose and make
+
+**Linux (Ubuntu/Debian)**
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+sudo apt update && sudo apt install -y make
+```
+Log out and back in (or `newgrp docker`) for the group change to apply.
+
+**macOS**
+
+```bash
+brew install --cask docker
+xcode-select --install
+```
+Launch Docker Desktop once from Applications before running any
+`make` command.
+
+**Windows**
+
+WSL is required (`make`, Docker, and the shell scripts used by this
+project don't run natively on Windows). Open PowerShell as
+Administrator, then run :
+
+```powershell
+wsl --install
+```
+Restart, then open a WSL terminal (Ubuntu recommended) and install
+Docker, Docker Compose, and `make` from that terminal using the
+Linux commands above. Docker Desktop with WSL2 integration enabled
+also works, in which case Docker itself doesn't need reinstalling
+inside WSL.
+
+### Setup
+
+1. `mv .example_env .env` and `mv .example_env_docker .env_docker`
+   at the project root, then fill in `POSTGRES_PASSWORD`,
+   `MINIO_ROOT_PASSWORD`, `AIRFLOW_JWT_SECRET`.
+2. Run `make setup`.
+
+At any time, if you need Airflow login credentials, run `make password`.
+You can also run `make rebuild` if you change variables while
+containers are running.
+
+### Access the stack
+
+- Airflow UI : `http://localhost:8085`
+- Streamlit dashboard : `http://localhost:8501`
+- MinIO console : `http://localhost:9106`
 
 ### Environment variables
 
@@ -285,6 +329,10 @@ ensure the MinIO bucket exists, and reload Streamlit on the VPS.
 CD runs via GitHub Actions on every pull request merged into `main`,
 connecting to the VPS over SSH (`appleboy/ssh-action`) to trigger the
 deployment, which runs `make deploy` on the remote host.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
 
 ## Pitch en français
 
