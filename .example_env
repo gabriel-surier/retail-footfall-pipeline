@@ -1,0 +1,48 @@
+# --- Python variables ---
+
+PYTHON_VERSION="3.12"
+AIRFLOW_PYTHON_VERSION="3.12"
+
+# --- File path variables ---
+FILE_PATH_RAW_DATA=data/01_raw
+FILE_PATH_INTER_DATA=data/02_interim
+FILE_PATH_PRO_DATA=data/03_processed
+
+# --- API variables ---
+API_BASE_URL="http://0.0.0.0:8002"
+APP_PORT=8002
+HOST_PORT=8002
+
+# --- Data variables ---
+
+DATA_LOAD_MOD="INIT"
+DATA_LOAD_INIT_DATE="2025-01-01"
+DATA_LOAD_DELTA=5
+
+MINIO_ENDPOINT="http://localhost:9105"
+MINIO_BUCKET="retail-footfall-pipeline"
+MINIO_ROOT_USER="dev-minio"
+MINIO_ROOT_PASSWORD=placeHolder
+
+# --- Environment variables ---
+
+ENVIRONMENT="DEV"
+
+# --- Debug variables ---
+
+DEBUG=true
+
+# --- Airflow variables ---
+AIRFLOW_VERSION=3.3.1
+AIRFLOW_PORT=8085
+AIRFLOW_USER="user_airflow"
+AIRFLOW_ADMIN_USER="admin_airflow"
+AIRFLOW_ADMIN_EMAIL=gabriel.surier@gmail.com
+AIRFLOW_JWT_SECRET=placeHolder
+POSTGRES_USER="airflow"
+POSTGRES_PASSWORD=placeHolder
+POSTGRES_DB="airflow"
+
+
+
+

@@ -91,8 +91,13 @@ reload-streamlit: check-docker-gid
 ensure-buckets: check-docker-gid
 	docker compose run --rm create-buckets
 
-# --- CD pipeline (prod, triggered on merge to main): rebuild ETL, bucket, then streamlit ---
-deploy: check-docker-gid build-etl ensure-buckets reload-streamlit
+# --- Rebuild and restart store-api only. --no-deps keeps other services untouched ---
+reload-store-api: check-docker-gid
+	docker compose build store-api
+	docker compose up -d --no-deps store-api
+
+# --- CD pipeline (prod, triggered on merge to main): rebuild ETL, bucket, api, then streamlit ---
+deploy: check-docker-gid build-etl ensure-buckets reload-streamlit reload-store-api
 	@echo "Deployment complete."
 
 # --- Print the auto-generated Airflow admin password. Retries: api-server may take a few seconds ---
