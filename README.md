@@ -18,7 +18,7 @@ full stack on a VPS for demonstration purposes.
 **Stack** : Airflow, FastAPI, MinIO, DuckDB, Pandas, Streamlit,
 Docker, GitHub Actions
 
-![Architecture du pipeline](docs/rfp_architecture.png)
+![Pipeline architecture](docs/rfp_architecture.png)
 
 ## Repo structure
 
@@ -70,9 +70,6 @@ Docker, GitHub Actions
 ├── README.md
 └── requirements.txt
 ```
-
-
-
 
 ## Local install
 
@@ -315,6 +312,12 @@ standing container, it's only invoked on demand by Airflow's
 `DockerOperator` through the scheduler's Docker-outside-of-Docker
 socket mount.
 
+Streamlit and the mock API live in this same monorepo rather than
+their own repos, a deliberate scope choice : the focus of this
+project is the data engineering side (orchestration, data quality,
+ETL), the API and dashboard are kept intentionally simple, just
+enough to demonstrate that side of the stack is understood too.
+
 DAGs are exposed to Airflow through a dedicated `orchestration/dags`
 folder, populated with symlinks pointing back to each pipeline's own
 DAG file across their respective project folders. This centralizes
@@ -324,11 +327,14 @@ A `Makefile` wraps the full lifecycle : `make setup` for a one-shot
 local bootstrap (env checks, permissions, network, DB migration, ETL
 image build, MinIO), `make up`/`make up-local` to start the stack in
 prod or local mode, and `make deploy` to rebuild the ETL image,
-ensure the MinIO bucket exists, and reload Streamlit on the VPS.
+ensure the MinIO bucket exists, and reload the store-api and
+Streamlit containers.
 
 CD runs via GitHub Actions on every pull request merged into `main`,
 connecting to the VPS over SSH (`appleboy/ssh-action`) to trigger the
 deployment, which runs `make deploy` on the remote host.
+
+![Pipeline environment](docs/rfp_environment.png)
 
 ## License
 
