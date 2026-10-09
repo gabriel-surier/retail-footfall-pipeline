@@ -25,12 +25,10 @@ VARIABLE_KEYS = {
     "DATA_LOAD_MOD": "DELTA",
     "DATA_LOAD_INIT_DATE": "2026-01-01",
     "MINIO_ROOT_PASSWORD": "",
-    "AIRFLOW_JWT_SECRET": "",
-    "POSTGRES_PASSWORD": "",
 }
 
 default_args = {
-    "owner": "gabriel",
+    "owner": "gabriel.surier",
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
@@ -118,6 +116,10 @@ with DAG(
         docker_url="unix://var/run/docker.sock",
         network_mode=ETL_NETWORK,
         command="python -m etl.rfp_fl001_0200_csv_parquet_data_prep",
+        environment={
+            "AIRFLOW_CTX_DAG_RUN_ID": "{{ run_id }}",
+            "AIRFLOW_CTX_EXECUTION_DATE": "{{ ts }}",
+        },
         auto_remove="success",
         mount_tmp_dir=False,
     )
